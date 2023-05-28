@@ -6,3 +6,29 @@ output:
   html_document: 
     keep_md: yes
 ---
+
+
+Potentially useful code
+```{r}
+datum3 <- datum3 %>%
+  mutate(trt = fct_relevel(trt, "Control", "Apivar", "Taktic", "Dribble18", "Vapor18", "ManyDribble", "HopGuard"))
+
+ssize <- datum3 %>%
+  filter(day == 0) %>% 
+  group_by(trt) %>% 
+  summarize(n = n())
+
+order <- seq(1:7)
+
+ssize <- cbind(ssize, order)
+
+datum4 <- left_join(datum3, ssize) %>% 
+  mutate(
+    label = paste0(trt,'\nN = ',n),
+    label = fct_reorder(label, order)
+         )
+```
+
+
+
+

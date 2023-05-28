@@ -6,3 +6,53 @@ output:
   html_document: 
     keep_md: yes
 ---
+
+# Candidate workflow
+
+- Make paper data into long format
+- Filter app data
+- Merge paper data with app data
+
+
+# Setup
+
+```{r}
+library(tidyverse)
+```
+
+
+```{r}
+paper <- read.csv("../../../DATA/entered/2023-05-23 data/manual_merge_paper_2023-05-23.csv")
+
+colony <- read.csv("../../../DATA/entered/2023-05-23 data/2022-06-14_125633__techteam__all_sample_export.csv")
+
+frame <- read.csv("../../../DATA/entered/2023-05-23 data/2022-06-14_125650__techteam__frame_side_export.csv")
+```
+
+
+# Make paper data into long format
+
+
+## Potentially useful code
+```{r}
+datum2 <- datum %>% 
+  filter(!is.na(ch77_var_total)) %>% 
+  rename(varroa0 = num_varroa, varroa77 = ch77_var_total)
+
+datum3 <- datum2 %>% pivot_longer(cols = c(varroa0, varroa77), names_to = "day", names_prefix = "varroa", values_to = "varroa")
+
+datum3 <- datum3 %>% 
+  mutate(time = ifelse(day == 0, "Before", "After"))
+```
+
+# Filter app data
+
+# Merge paper data with app data
+
+
+# Make a vector of colonies to exclude
+Entirely
+After a certain date
+
+
+
