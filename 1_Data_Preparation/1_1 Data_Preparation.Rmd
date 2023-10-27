@@ -1,7 +1,7 @@
 ---
-title: "Untitled"
+title: "Split-Treat Data Preparation"
 author: "Dan Aurell"
-date: "2023-05-28"
+date: "2023-10-27"
 output:   
   html_document: 
     keep_md: yes
@@ -18,16 +18,159 @@ output:
 
 ```{r}
 library(tidyverse)
+library(lme4)
+library(stringr)
 ```
+
+
 
 
 ```{r}
-paper <- read.csv("../../../DATA/entered/2023-05-23 data/manual_merge_paper_2023-05-23.csv")
-
-colony <- read.csv("../../../DATA/entered/2023-05-23 data/2022-06-14_125633__techteam__all_sample_export.csv")
-
-frame <- read.csv("../../../DATA/entered/2023-05-23 data/2022-06-14_125650__techteam__frame_side_export.csv")
+paper <- read.csv("./data/manual_merge_paper_2023-05-23.csv")
+colony <- read.csv("./data/2022-06-14_125633__techteam__all_sample_export.csv")
+frame <- read.csv("./data/2022-06-14_125650__techteam__frame_side_export.csv")
 ```
+
+# List key data from paper
+
+```{r}
+names(paper)
+```
+
+
+# Discard colonies that were removed due to EFB
+
+```{r}
+nonefb <- paper %>% 
+  filter(!grepl("EFB",reason_removal))
+
+efb <- paper %>% 
+  filter(grepl("EFB",reason_removal))
+
+# Number of EFB colonies per treatment
+efb %>% 
+  group_by(trt) %>% 
+  summarize(n = n()) # Very even across groups
+```
+
+Determine survival and reasons for colony death
+
+```{r}
+nonefb_queen <- nonefb %>% 
+  select(split_ids, trt, exp_day_decided_remove, post_quick_fob, reason_removal, ch44_qstatus, ch58_qstatus, ch72_qstatus)
+
+
+
+# Survival to day 77
+nonefb_queen$alive77 <- ifelse(is.na(nonefb_queen$exp_day_decided_remove), 1, 0)
+nonefb_queen$alivepost <- ifelse(is.na(nonefb_queen$post_quick_fob), 0, 1)
+
+sum(nonefb_queen$alive77) #122
+sum(nonefb_queen$alivepost) #123 # 22-003 was listed as "decided to remove on d77" but was left in to the post sampling
+
+
+# Number of queen events per treatment by day 72
+
+# failed to mate
+  # look in column reason_removal
+# drone layer
+# queenless
+  # If QL or DL present in columns ch44_qstatus, ch58_qstatus, ch72_qstatus
+
+
+
+
+nonefb_queen$qstatuses <- paste(
+  nonefb_queen$ch44_qstatus, 
+  nonefb_queen$ch58_qstatus, 
+  nonefb_queen$ch72_qstatus, 
+  nonefb_queen$reason_removal
+  )
+
+nonefb_queen$failed <- ifelse(grepl("Failed", nonefb_queen$reason_removal), 1, 0)
+nonefb_queen$weak <- ifelse(grepl("Weak|Small", nonefb_queen$reason_removal), 1, 0)
+nonefb_queen$QL <- ifelse(grepl("QL|VQS", nonefb_queen$qstatuses), 1, 0)
+nonefb_queen$DL <- ifelse(grepl("DL", nonefb_queen$qstatuses), 1, 0)
+
+nonefb_queen <- nonefb_queen %>% 
+  mutate(died = ifelse(failed + weak + QL + DL > 0, 1, 0))
+
+
+# Failure to mate per treatment
+nonefb_queen %>% 
+  group_by(trt) %>% 
+  summarize(n = n(),
+            alive77_num = sum(alive77),
+            survive77.p = alive77_num/n,
+            
+            failed_num = sum(failed),
+            failed.p = failed_num/n,
+            
+            weak_num = sum(weak),
+            weak.p = weak_num/n,
+            
+            QL_num = sum(QL),
+            QL.p = QL_num/n,
+            
+            DL_num = sum(DL),
+            DL.p = DL_num/n,
+            
+            died_num = sum(died),
+            died.p = died_num/n
+          )
+
+```
+
+
+
+# Quickly graph post frames of bees data
+
+```{r}
+nonefb %>% 
+ggplot(aes(x = trt, y = post_quick_fob)) +
+  geom_boxplot()
+  
+```
+
+
+
+# What data do I have from the app?
+
+App data - d77
+-
+Shaw 5/24/2023
+Wire 5/31/2023
+Shooting Range 6/7/2023
+Turfgrass 6/11/2023
+
+Post-harvest - no app data
+-
+Shaw 7/1/2023
+Wire 7/2/2023
+Shooting Range 7/2/2023
+Turfgrass 7/2/2023
+
+
+How to identify just relevant app data for day 77
+```{r}
+unique(colony$project)
+
+pattern <- "date"
+  grep(pattern, names(colony), value=TRUE)  
+
+
+unique(colony$collection_date)
+  
+```
+
+
+
+
+
+
+
+
+
 
 
 # Make paper data into long format
@@ -44,6 +187,9 @@ datum3 <- datum2 %>% pivot_longer(cols = c(varroa0, varroa77), names_to = "day",
 datum3 <- datum3 %>% 
   mutate(time = ifelse(day == 0, "Before", "After"))
 ```
+
+
+
 
 # Filter app data
 
