@@ -7,11 +7,26 @@ output:
     keep_md: yes
 ---
 
-# Candidate workflow
 
-- Make paper data into long format
-- Filter app data
-- Merge paper data with app data
+# Workflow 
+
+## What data do I have from the app?
+
+App data - d77
+-
+Shaw 5/24/2022
+Wire 5/31/2022
+Shooting Range 6/7/2022
+Turfgrass 6/11/2022
+
+Post-harvest - no app data
+-
+Shaw 7/1/2022
+Wire 7/2/2022
+Shooting Range 7/2/2022
+Turfgrass 7/2/2022
+
+
 
 
 # Setup
@@ -23,86 +38,224 @@ library(stringr)
 ```
 
 
+# Read in data
 
+## Read csv
 
 ```{r}
 paper <- read.csv("./data/manual_merge_paper_2023-05-23.csv")
-colony <- read.csv("./data/2022-06-14_125633__techteam__all_sample_export.csv")
+colony <- read.csv("./data/2022-06-14_125633__techteam__all_sample_export.csv", skip = 9, na.strings = c("", " ", "NA"))
 frame <- read.csv("./data/2022-06-14_125650__techteam__frame_side_export.csv")
+
+
 ```
 
-# List key data from paper
+## Pare down and rename columns
+
+Paper data
 
 ```{r}
-names(paper)
+paper <- paper %>% 
+  rename(colony_num = split_ids)
 ```
 
 
-# Discard colonies that were removed due to EFB
+Frame-level data
+```{r}
+frame2 <- frame %>% 
+  select(frame__box__sample__sample_event__project,
+         frame__box__sample__sample_event__collection_date,
+         frame__box__sample__colony_num,
+         frame__box__sample__inspection_order,
+         frame__box__box_number,
+         frame__box__size,
+         frame__frame_number,
+         frame__box__sample,
+         id,
+         frame,
+         side_name,
+         frame__box__bee_coverage,
+         bee_coverage,
+         capped_worker_brood_coverage,
+         notes
+         )
+
+
+frame2 <- frame2 %>% 
+  rename(project = frame__box__sample__sample_event__project,
+         collection_date = frame__box__sample__sample_event__collection_date,
+         colony_num = frame__box__sample__colony_num,
+         inspection_order = frame__box__sample__inspection_order,
+         box_num = frame__box__box_number,
+         box_size = frame__box__size,
+         box_bee_coverage = frame__box__bee_coverage,
+         frame_num = frame__frame_number,
+         sample = frame__box__sample,
+         cwb_coverage = capped_worker_brood_coverage
+         )
+
+```
+
+Colony-level data
+```{r}
+
+names(colony)
+
+colony2 <- colony %>% 
+  select(sample_event__project,
+         sample_event__collection_date,
+         colony_num,
+         deeps_num,
+         mediums_num,
+         threequarters_num,
+         shallows_num,
+         supers_num,
+         queen_status,
+         frames_of_bees,
+         efb_observed
+         ) %>% 
+  rename(project = sample_event__project,
+         collection_date = sample_event__collection_date
+         )
+```
+
+
+
+# Understand data
+
+How to identify just relevant app data for day 77
+```{r}
+unique(colony$project)
+
+pattern <- "date"
+  grep(pattern, names(colony), value=TRUE)  
+
+pattern <- "coverage"
+  grep(pattern, names(frame), value=TRUE)  
+  
+  
+unique(colony$collection_date)
+  
+```
+
+# Prep data 
+
+## Prep paper data
+
+
+
+
+
+
+## Prep colony level app data
 
 ```{r}
-nonefb <- paper %>% 
-  filter(!grepl("EFB",reason_removal))
+# Colony2 is just selected and renamed
 
-efb <- paper %>% 
-  filter(grepl("EFB",reason_removal))
+colony2 %>% 
+  filter(collection_date %in% c("2022-05-24", "2022-05-31", "2022-06-07", "2022-06-11")) %>% 
+  group_by(collection_date, colony_num) %>% 
+  summarize(n())
+
+# colony3 is filtered to the data of interest
+
+colony3 <- colony2 %>% 
+  filter(collection_date %in% c("2022-05-24", "2022-05-31", "2022-06-07", "2022-06-11")) %>% 
+  filter(!is.na(queen_status)) %>% 
+  arrange(colony_num)
+
+unique(colony3$colony_num) #138 including the blank space
+# But a few duplicated colonies exist
+
+# Replace 21-043 with 22-043
+colony3$colony_num[colony3$colony_num == "21-034"] <- "22-034"
+
+# focus on queen status and efb columns
+colony4 <- colony3 %>% 
+  select(colony_num, queen_status, efb_observed)
+
+# Rename queen status and efb columns
+
+colony4 <- colony4 %>% 
+  rename(ch77_qstatus = queen_status,
+         ch77_efb = efb_observed
+         )
+
+# Remove duplicate rows introduced by the app
+colony4 <- colony4[!duplicated(colony4[, 1]), ]
+
+
+paper <- left_join(paper, colony4)
+
+
+```
+
+## Paper data 
+
+### Tag colonies that had EFB by day 77
+
+```{r}
+
+paper$efb_columns <- paste(
+  paper$reason_removal, 
+  paper$ch77_efb # This did not add any additional ones
+  )
+
+paper$efb <- ifelse(grepl("EFB", paper$efb_columns), 1, 0)
+
+
 
 # Number of EFB colonies per treatment
-efb %>% 
+paper %>%
+  filter(efb == 1) %>% 
   group_by(trt) %>% 
   summarize(n = n()) # Very even across groups
 ```
 
-Determine survival and reasons for colony death
+Determine queen issues including day 77
 
 ```{r}
-nonefb_queen <- nonefb %>% 
-  select(split_ids, trt, exp_day_decided_remove, post_quick_fob, reason_removal, ch44_qstatus, ch58_qstatus, ch72_qstatus)
+# Survival to day 77 - assess based on absence of other issues
 
-
-
-# Survival to day 77
-nonefb_queen$alive77 <- ifelse(is.na(nonefb_queen$exp_day_decided_remove), 1, 0)
-nonefb_queen$alivepost <- ifelse(is.na(nonefb_queen$post_quick_fob), 0, 1)
-
-sum(nonefb_queen$alive77) #122
-sum(nonefb_queen$alivepost) #123 # 22-003 was listed as "decided to remove on d77" but was left in to the post sampling
-
-
-# Number of queen events per treatment by day 72
+# Number of queen events per treatment up to and including day 72
 
 # failed to mate
   # look in column reason_removal
 # drone layer
 # queenless
-  # If QL or DL present in columns ch44_qstatus, ch58_qstatus, ch72_qstatus
+  # If QL or DL present in columns ch44_qstatus, ch58_qstatus, ch72_qstatus, 
 
 
-
-
-nonefb_queen$qstatuses <- paste(
-  nonefb_queen$ch44_qstatus, 
-  nonefb_queen$ch58_qstatus, 
-  nonefb_queen$ch72_qstatus, 
-  nonefb_queen$reason_removal
+paper$qstatuses <- paste(
+  paper$ch44_qstatus, 
+  paper$ch58_qstatus, 
+  paper$ch72_qstatus, 
+  paper$ch77_qstatus,
+  paper$reason_removal
   )
 
-nonefb_queen$failed <- ifelse(grepl("Failed", nonefb_queen$reason_removal), 1, 0)
-nonefb_queen$weak <- ifelse(grepl("Weak|Small", nonefb_queen$reason_removal), 1, 0)
-nonefb_queen$QL <- ifelse(grepl("QL|VQS", nonefb_queen$qstatuses), 1, 0)
-nonefb_queen$DL <- ifelse(grepl("DL", nonefb_queen$qstatuses), 1, 0)
+paper$failed <- ifelse(grepl("Failed", paper$reason_removal), 1, 0)
+paper$weak <- ifelse(grepl("Weak|Small", paper$reason_removal), 1, 0)
+paper$QL <- ifelse(grepl("QL|VS|VQS|VQ", paper$qstatuses), 1, 0)
+paper$DL <- ifelse(grepl("DL", paper$qstatuses), 1, 0)
 
-nonefb_queen <- nonefb_queen %>% 
-  mutate(died = ifelse(failed + weak + QL + DL > 0, 1, 0))
+paper <- paper %>% 
+  mutate(died = ifelse(failed + weak + QL + DL > 0, 1, 0),
+         survived = ifelse(failed + weak + QL + DL == 0, 1, 0)
+         )
 
 
-# Failure to mate per treatment
-nonefb_queen %>% 
+```
+
+# Which kinds of colony issues were present in how many numbers per group
+
+```{r}
+# Failure to mate per treatment - within non-EFB colonies
+loss_summary <- paper %>% 
+  filter(efb == 0) %>% 
   group_by(trt) %>% 
   summarize(n = n(),
-            alive77_num = sum(alive77),
-            survive77.p = alive77_num/n,
-            
+
             failed_num = sum(failed),
             failed.p = failed_num/n,
             
@@ -116,14 +269,171 @@ nonefb_queen %>%
             DL.p = DL_num/n,
             
             died_num = sum(died),
-            died.p = died_num/n
+            died.p = died_num/n,
+            
+            survived_num = sum(survived),
+            survived.p = survived_num/n
           )
+
+
 
 ```
 
 
 
-# Quickly graph post frames of bees data
+Prep failure type table for graphing
+```{r}
+loss_summary_pivoted <- loss_summary %>% 
+  pivot_longer(c(failed.p, weak.p, QL.p, DL.p), names_to = "reason", values_to = "proportion") 
+
+
+loss_summary_pivoted <- loss_summary_pivoted %>% 
+  mutate(
+    trt_label = if_else(trt == "1-Control", "Control",
+              if_else(trt == "2-Apivar", "Apivar",
+                    if_else(trt == "4-Dribble18", "OA Dribble", 
+                            if_else(trt == "6-ManyDribble", "5x OA Dribble",
+                                   if_else(trt == "5-Vapor18", "OA Vapor",
+                                           if_else(trt == "7-HopGuard", "HopGuard",
+                                                   if_else(trt == "3-Taktic", "Amitraz E.C.", "NA"
+                                                           )
+                                                   )))))),
+    reason_label = if_else(reason == "weak.p", "Weak",
+                           if_else(reason == "failed.p", "Failed to mate",
+                                   if_else(reason == "DL.p", "Drone layer",
+                                           if_else(reason == "QL.p", "Queenless", "NA"
+                           )
+    
+    
+    ))))
+
+# Relevel factors for plotting
+
+loss_summary_pivoted <- loss_summary_pivoted %>%
+     mutate(trt_label = fct_relevel(trt_label, "Control", "Apivar", "Amitraz E.C.", "OA Dribble", "5x OA Dribble", "OA Vapor", "HopGuard"),
+            reason_label = fct_relevel(reason_label,"Weak", "Drone layer", "Queenless", "Failed to mate")
+            )
+
+
+
+```
+
+
+## To be able to pull out colonies that had certain issues, should I make vectors of colonies with those issues?
+
+DAN DAN
+
+```{r}
+# Which colonies did I identify as having each issue - make vectors
+
+# EFB
+
+# Weak
+weak_colonies <- paper %>% 
+  filter(weak == 1)
+
+
+weak_colonies$split_ids # "22-003" "22-050" "22-058" "22-142" "22-155"
+
+# "22-003" - missing
+# "22-050" - missing
+# "22-058" - missing
+# "22-142" - exists
+# "22-155" - missing
+
+```
+
+
+
+
+
+# Plotting survival and issues
+
+```{r}
+# With "weak"
+
+loss_summary_pivoted %>% 
+  ggplot(aes(x = trt_label, y = proportion, fill = reason_label)) +
+  geom_col(position = "stack") +
+  scale_fill_viridis_d(direction = -1) +
+  scale_y_continuous(limits = c(0,1)) + 
+  ylab("Proportion of colonies") +
+  theme_classic(base_size = 30) + 
+  theme(axis.text.x=element_text(angle=45,hjust=1), axis.title.x=element_blank(), legend.title = element_blank())
+  
+ggsave("./2023-11-04 CoD v3.png", width = 12, height = 8.625, units = "in")
+
+
+# Without "weak"
+
+loss_summary_pivoted %>% 
+  filter(reason != "weak.p") %>% 
+  ggplot(aes(x = trt_label, y = proportion, fill = reason_label)) +
+  geom_col(position = "stack") +
+  scale_fill_viridis_d(direction = 1) +
+  scale_y_continuous(limits = c(0,1)) + 
+  ylab("Proportion of colonies") +
+  theme_classic(base_size = 30) + 
+  theme(axis.text.x=element_text(angle=45,hjust=1), axis.title.x=element_blank(), legend.title = element_blank())
+  
+ggsave("./2023-11-04 CoD v4.png", width = 12, height = 8.625, units = "in")
+
+
+```
+
+
+
+
+
+# summarize population based on frame level data - into population per colony
+
+```{r}
+frame2 %>% 
+  filter(collection_date %in% c("2022-05-24", "2022-05-31", "2022-06-07", "2022-06-11")) %>% 
+  group_by(collection_date, colony_num) %>% 
+  summarize(n=n()) %>% 
+  arrange(desc(n))
+
+
+# Check do some colonies have duplicated rows
+frame3 <- frame2 %>% 
+  filter(collection_date %in% c("2022-05-24", "2022-05-31", "2022-06-07", "2022-06-11")) %>% 
+  arrange(colony_num)
+
+write.csv(frame3, "frame3.csv")
+
+# There are anywhere from 36 to 72 records per colony - assume that no record was made where the number of bees was 0
+
+# Check how many deep boxes each colony had
+
+frame2 %>% 
+  filter(collection_date %in% c("2022-05-24", "2022-05-31", "2022-06-07", "2022-06-11")) %>% 
+  filter(box_size == "Deep") %>% 
+  group_by(colony_num, box_num) %>% 
+  summarize(n = n()) %>% 
+  group_by(colony_num) %>% 
+  summarize(n = n()) %>% 
+  arrange(desc(n))
+
+# All have 2 Deep boxes except 22-142 which has just one. This is correct... this is the one which was super weak at Turfgrass and was only in one box.
+
+# Check how many Mediums
+frame2 %>% 
+  filter(collection_date %in% c("2022-05-24", "2022-05-31", "2022-06-07", "2022-06-11")) %>% 
+  filter(box_size == "Medium") %>% 
+  group_by(colony_num, box_num) %>% 
+  summarize(n = n()) %>% 
+  group_by(colony_num) %>% 
+  summarize(n = n()) %>% 
+  arrange(desc(n))
+
+# Only 46 colonies had supers (or at least bees in supers) on Day 77
+
+```
+
+
+
+## Quickly graph post frames of bees data
 
 ```{r}
 nonefb %>% 
@@ -134,34 +444,7 @@ ggplot(aes(x = trt, y = post_quick_fob)) +
 
 
 
-# What data do I have from the app?
 
-App data - d77
--
-Shaw 5/24/2023
-Wire 5/31/2023
-Shooting Range 6/7/2023
-Turfgrass 6/11/2023
-
-Post-harvest - no app data
--
-Shaw 7/1/2023
-Wire 7/2/2023
-Shooting Range 7/2/2023
-Turfgrass 7/2/2023
-
-
-How to identify just relevant app data for day 77
-```{r}
-unique(colony$project)
-
-pattern <- "date"
-  grep(pattern, names(colony), value=TRUE)  
-
-
-unique(colony$collection_date)
-  
-```
 
 
 
