@@ -8,8 +8,6 @@ output:
 ---
 
 
-test of push to GitHub
-
 # Workflow 
 
 ## What data do I have from the app?
