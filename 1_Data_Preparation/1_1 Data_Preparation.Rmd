@@ -8,6 +8,8 @@ output:
 ---
 
 
+test of push to GitHub
+
 # Workflow 
 
 ## What data do I have from the app?
@@ -60,41 +62,133 @@ paper <- paper %>%
 ```
 
 
+
+
+
+
 Frame-level data
 ```{r}
+
 frame2 <- frame %>% 
-  select(frame__box__sample__sample_event__project,
-         frame__box__sample__sample_event__collection_date,
-         frame__box__sample__colony_num,
-         frame__box__sample__inspection_order,
-         frame__box__box_number,
-         frame__box__size,
-         frame__frame_number,
-         frame__box__sample,
-         id,
-         frame,
-         side_name,
-         frame__box__bee_coverage,
-         bee_coverage,
-         capped_worker_brood_coverage,
-         notes
+  rename(
+    project = frame__box__sample__sample_event__project,  
+    colony_num = frame__box__sample__colony_num,
+    date = frame__box__sample__sample_event__collection_date,
+    box_num = frame__box__box_number,
+    box_size = frame__box__size,
+    frame_num = frame__frame_number,
+    side = side_name,
+    bees = bee_coverage,
+    cap_wk = capped_worker_brood_coverage,
+    cap_dr = capped_drone_brood_coverage,
+    honey = honey_coverage,
+    pollen = pollen_coverage,
+    extra_bees = frame__box__bee_coverage,
+    inspection_order = frame__box__sample__inspection_order
          )
 
 
 frame2 <- frame2 %>% 
-  rename(project = frame__box__sample__sample_event__project,
-         collection_date = frame__box__sample__sample_event__collection_date,
-         colony_num = frame__box__sample__colony_num,
-         inspection_order = frame__box__sample__inspection_order,
-         box_num = frame__box__box_number,
-         box_size = frame__box__size,
-         box_bee_coverage = frame__box__bee_coverage,
-         frame_num = frame__frame_number,
-         sample = frame__box__sample,
-         cwb_coverage = capped_worker_brood_coverage
+  select(
+        project,
+    colony_num,
+    date,
+    box_num,
+    box_size,
+    frame_num,
+    side,
+    bees,
+    cap_wk,
+    cap_dr,
+    honey,
+    pollen,
+    extra_bees,
+    inspection_order,
+         id,
+         frame,
+         notes
          )
 
+frame2 <- frame2 %>% 
+  filter(date %in% c("2022-05-24", "2022-05-31", "2022-06-07", "2022-06-11")) 
+
+
+# Quality control
+unique(frame2$colony_num)
+
+ frame2 %>% 
+  group_by(date, colony_num) %>% 
+  summarize(n = n()) %>% 
+   arrange(desc(n))
+
 ```
+## Deal with "extra bees"
+
+```{r}
+frame2 %>% 
+  group_by(date, colony_num) %>% 
+  summarize(n = n()) # There are 36-72 rows per colony and date
+
+
+frame2$extra_bees_temp <- frame2$extra_bees # clone column
+frame2$extra_bees <- NA # Erase the values in original column
+
+frame2 <- frame2 %>% 
+  mutate(extra_bees = ifelse(frame_num == 1 & side == "A", extra_bees_temp, NA)) %>% 
+  select(-extra_bees_temp)
+
+# Replace NA with 0
+frame2$bees[is.na(frame2$bees)] <- 0
+frame2$extra_bees[is.na(frame2$extra_bees)] <- 0
+
+# Replace 2520 with 25
+frame2$bees[frame2$bees == 2520] <- 0
+
+frame2 <- frame2 %>% 
+  mutate(bees_total = bees + extra_bees)
+
+```
+
+
+Correct for different box/frame sizes
+```{r}
+# Convert to Deep-frame equivalents
+frame2 <- frame2 %>% mutate(
+  conversion = ifelse(box_size == "Medium", 0.64, 1)
+)
+
+names(frame2)
+
+# append "_C" to a column to mean converted
+frame2 <- frame2 %>% 
+  mutate(
+    bees_C = bees*conversion,
+    cap_wk_C = cap_wk*conversion,
+    cap_dr_C = cap_dr*conversion,
+    honey_C = honey*conversion,
+    pollen_C = pollen*conversion
+  )
+```
+
+## Summarize per colony
+```{r}
+resources <- frame2 %>% 
+  group_by(colony_num) %>% 
+  # 100 would mean that there is one complete side of bees
+  
+  # Divide by 100 to get "sides"
+  # Then divide by 2 to get "frames"
+
+  # In total, divide by 200
+  
+  summarise(
+    frames_bees = sum(bees_C, na.rm = TRUE)/200,
+    frames_wbr = sum(cap_wk_C, na.rm = TRUE)/200,
+    frames_dbr = sum(cap_dr_C, na.rm = TRUE)/200,
+    frames_honey = sum(honey_C, na.rm = TRUE)/200
+    )
+```
+
 
 Colony-level data
 ```{r}
@@ -188,6 +282,21 @@ colony4 <- colony4[!duplicated(colony4[, 1]), ]
 paper <- left_join(paper, colony4)
 
 
+paper <- paper %>% 
+  mutate(
+    trt_label = if_else(trt == "1-Control", "Control",
+              if_else(trt == "2-Apivar", "Apivar",
+                    if_else(trt == "4-Dribble18", "OA Dribble", 
+                            if_else(trt == "6-ManyDribble", "5x OA Dribble",
+                                   if_else(trt == "5-Vapor18", "OA Vapor",
+                                           if_else(trt == "7-HopGuard", "HopGuard",
+                                                   if_else(trt == "3-Taktic", "Amitraz E.C.", "NA"
+                                                           )
+                                                   )))))))
+
+paper <- paper %>%
+     mutate(trt_label = fct_relevel(trt_label, "Control", "Apivar", "Amitraz E.C.", "OA Dribble", "5x OA Dribble", "OA Vapor", "HopGuard"))
+
 ```
 
 ## Paper data 
@@ -247,13 +356,89 @@ paper <- paper %>%
 
 ```
 
+## Add resources data to paper data
+
+```{r}
+paper <- left_join(paper, resources)
+```
+
+Correct the hive weight based on the number of supers and 11 lbs per super
+```{r}
+paper <- paper %>% 
+  mutate(post_lbs_C = post_lbs - 11*(post_supers_use-1))
+```
+
+Filter out the colonies that had disqualifying issues
+
+
+
+```{r}
+# Include the 5 colonies that were pulled out for being weak
+an_dat <- paper %>% 
+  filter(efb + failed + QL + DL == 0)
+
+
+an_dat$frames_bees[an_dat$weak == 1] <- 0
+
+an_dat$trt
+
+```
+
+## Analyze and plot day 77 Colony strength
+
+```{r}
+an_dat %>%
+  ggplot(aes(x = trt_label, y = frames_bees)) +
+  geom_boxplot(fill = "#031C38", outlier.shape = NA, alpha = 0.6, color = "black") +
+  stat_summary(fun.y=mean, geom="point", shape=20, size=10, color="black", fill="black") +
+  #xlab("Treatment") +
+  ylab("Frames of bees") +
+  theme_classic( base_size = 30) +
+  theme(axis.text.x=element_text(angle=45,hjust=1), axis.title.x=element_blank())
+
+ggsave("./2023-11-05 liebefeld_bees v1.png", width = 12, height = 8.625, units = "in")
+
+ggsave("./2023-11-05 liebefeld_bees v2.png", width = 12, height = 6.5, units = "in")
+
+m.bees <- lm(frames_bees~trt, data = an_dat)
+summary(m.bees)
+summary(aov(m.bees))
+anova(m.bees) # No effect of treatment (p=0.9999)
+```
+
+
+```{r}
+plot(m.bees)
+```
+
+
+## Analyze and plots the data for colony weight
+
+```{r}
+m.weight <- lm(post_lbs_C~trt, data = an_dat)
+summary(m.weight)
+
+an_dat %>%
+  ggplot(aes(x = trt_label, y = post_lbs_C)) +
+  geom_boxplot(fill = "#031C38", outlier.shape = NA, alpha = 0.6, color = "black") +
+  stat_summary(fun.y=mean, geom="point", shape=20, size=10, color="black", fill="black") +
+  #xlab("Treatment") +
+  ylab("Weight (lbs)") +
+  theme_classic( base_size = 30) +
+  theme(axis.text.x=element_text(angle=45,hjust=1), axis.title.x=element_blank())
+
+ggsave("./2023-11-05 weight v1.png", width = 12, height = 8.625, units = "in")
+```
+
+
+
 # Which kinds of colony issues were present in how many numbers per group
 
 ```{r}
 # Failure to mate per treatment - within non-EFB colonies
 loss_summary <- paper %>% 
   filter(efb == 0) %>% 
-  group_by(trt) %>% 
+  group_by(trt_label) %>% 
   summarize(n = n(),
 
             failed_num = sum(failed),
@@ -289,15 +474,6 @@ loss_summary_pivoted <- loss_summary %>%
 
 loss_summary_pivoted <- loss_summary_pivoted %>% 
   mutate(
-    trt_label = if_else(trt == "1-Control", "Control",
-              if_else(trt == "2-Apivar", "Apivar",
-                    if_else(trt == "4-Dribble18", "OA Dribble", 
-                            if_else(trt == "6-ManyDribble", "5x OA Dribble",
-                                   if_else(trt == "5-Vapor18", "OA Vapor",
-                                           if_else(trt == "7-HopGuard", "HopGuard",
-                                                   if_else(trt == "3-Taktic", "Amitraz E.C.", "NA"
-                                                           )
-                                                   )))))),
     reason_label = if_else(reason == "weak.p", "Weak",
                            if_else(reason == "failed.p", "Failed to mate",
                                    if_else(reason == "DL.p", "Drone layer",
@@ -321,7 +497,7 @@ loss_summary_pivoted <- loss_summary_pivoted %>%
 
 ## To be able to pull out colonies that had certain issues, should I make vectors of colonies with those issues?
 
-DAN DAN
+- No, I can filter based on the EFB column to make an analytical dataset
 
 ```{r}
 # Which colonies did I identify as having each issue - make vectors
@@ -338,7 +514,7 @@ weak_colonies$split_ids # "22-003" "22-050" "22-058" "22-142" "22-155"
 # "22-003" - missing
 # "22-050" - missing
 # "22-058" - missing
-# "22-142" - exists
+# "22-142" - exists but is quite low 
 # "22-155" - missing
 
 ```
@@ -370,14 +546,45 @@ loss_summary_pivoted %>%
   filter(reason != "weak.p") %>% 
   ggplot(aes(x = trt_label, y = proportion, fill = reason_label)) +
   geom_col(position = "stack") +
-  scale_fill_viridis_d(direction = 1) +
+  scale_fill_viridis_d(direction = -1) +
   scale_y_continuous(limits = c(0,1)) + 
   ylab("Proportion of colonies") +
   theme_classic(base_size = 30) + 
   theme(axis.text.x=element_text(angle=45,hjust=1), axis.title.x=element_blank(), legend.title = element_blank())
   
-ggsave("./2023-11-04 CoD v4.png", width = 12, height = 8.625, units = "in")
+ggsave("./2023-11-04 CoD v5.png", width = 12, height = 8.625, units = "in")
 
+
+```
+
+
+Only "weak" colonies
+
+
+Dan
+```{r}
+
+loss_summary %>% 
+  ggplot(aes(x = trt_label, y = weak_num)) +
+  geom_col() +
+  ylab(NULL) +
+  scale_y_continuous(breaks = c(0,1,2)) +
+  theme_classic(base_size = 30) + 
+  theme(axis.text.x=element_text(angle=45,hjust=1), axis.title.x=element_blank(), legend.title = element_blank())
+
+ggsave("./2023-11-05 Count of weak v1.png", width = 12, height = 4, units = "in")
+```
+
+
+
+
+# summarize population based on frame level data - into population per colony
+
+## Sum the population per colony in frame level dataset
+
+DANDAN
+
+```{r}
 
 ```
 
@@ -385,7 +592,14 @@ ggsave("./2023-11-04 CoD v4.png", width = 12, height = 8.625, units = "in")
 
 
 
-# summarize population based on frame level data - into population per colony
+
+
+
+
+
+# OLD OLD OLD
+
+## Gather info
 
 ```{r}
 frame2 %>% 
@@ -433,29 +647,6 @@ frame2 %>%
 
 
 
-## Quickly graph post frames of bees data
-
-```{r}
-nonefb %>% 
-ggplot(aes(x = trt, y = post_quick_fob)) +
-  geom_boxplot()
-  
-```
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 # Make paper data into long format
 
 
@@ -470,6 +661,17 @@ datum3 <- datum2 %>% pivot_longer(cols = c(varroa0, varroa77), names_to = "day",
 datum3 <- datum3 %>% 
   mutate(time = ifelse(day == 0, "Before", "After"))
 ```
+
+## Quickly graph post frames of bees data
+
+```{r}
+nonefb %>% 
+ggplot(aes(x = trt, y = post_quick_fob)) +
+  geom_boxplot()
+  
+```
+
+
 
 
 
