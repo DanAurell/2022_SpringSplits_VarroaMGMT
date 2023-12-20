@@ -41,7 +41,6 @@ library(stringr)
 # Read in data
 
 ## Read csv
-
 ```{r}
 paper <- read.csv("./data/manual_merge_paper_2023-05-23.csv")
 colony <- read.csv("./data/2022-06-14_125633__techteam__all_sample_export.csv", skip = 9, na.strings = c("", " ", "NA"))
@@ -53,16 +52,10 @@ frame <- read.csv("./data/2022-06-14_125650__techteam__frame_side_export.csv")
 ## Pare down and rename columns
 
 Paper data
-
 ```{r}
 paper <- paper %>% 
   rename(colony_num = split_ids)
 ```
-
-
-
-
-
 
 Frame-level data
 ```{r}
@@ -121,7 +114,6 @@ unique(frame2$colony_num)
 
 ```
 ## Deal with "extra bees"
-
 ```{r}
 frame2 %>% 
   group_by(date, colony_num) %>% 
@@ -216,6 +208,7 @@ colony2 <- colony %>%
 # Understand data
 
 How to identify just relevant app data for day 77
+"colony" and "frame" are the colony and frame level app data
 ```{r}
 unique(colony$project)
 
@@ -225,22 +218,12 @@ pattern <- "date"
 pattern <- "coverage"
   grep(pattern, names(frame), value=TRUE)  
   
-  
 unique(colony$collection_date)
-  
 ```
 
 # Prep data 
 
-## Prep paper data
-
-
-
-
-
-
 ## Prep colony level app data
-
 ```{r}
 # Colony2 is just selected and renamed
 
@@ -250,7 +233,6 @@ colony2 %>%
   summarize(n())
 
 # colony3 is filtered to the data of interest
-
 colony3 <- colony2 %>% 
   filter(collection_date %in% c("2022-05-24", "2022-05-31", "2022-06-07", "2022-06-11")) %>% 
   filter(!is.na(queen_status)) %>% 
@@ -267,7 +249,6 @@ colony4 <- colony3 %>%
   select(colony_num, queen_status, efb_observed)
 
 # Rename queen status and efb columns
-
 colony4 <- colony4 %>% 
   rename(ch77_qstatus = queen_status,
          ch77_efb = efb_observed
@@ -276,9 +257,7 @@ colony4 <- colony4 %>%
 # Remove duplicate rows introduced by the app
 colony4 <- colony4[!duplicated(colony4[, 1]), ]
 
-
 paper <- left_join(paper, colony4)
-
 
 paper <- paper %>% 
   mutate(
@@ -297,10 +276,9 @@ paper <- paper %>%
 
 ```
 
-## Paper data 
+## Prep paper data
 
-### Tag colonies that had EFB by day 77
-
+Tag colonies that had EFB by day 77
 ```{r}
 
 paper$efb_columns <- paste(
@@ -320,7 +298,6 @@ paper %>%
 ```
 
 Determine queen issues including day 77
-
 ```{r}
 # Survival to day 77 - assess based on absence of other issues
 
@@ -355,7 +332,6 @@ paper <- paper %>%
 ```
 
 ## Add resources data to paper data
-
 ```{r}
 paper <- left_join(paper, resources)
 ```
@@ -366,71 +342,22 @@ paper <- paper %>%
   mutate(post_lbs_C = post_lbs - 11*(post_supers_use-1))
 ```
 
-Filter out the colonies that had disqualifying issues
-
-
-
+# Make analytical dataset an_dat
 ```{r}
+# Filter out the colonies that had disqualifying issues
 # Include the 5 colonies that were pulled out for being weak
 an_dat <- paper %>% 
   filter(efb + failed + QL + DL == 0)
 
-
 an_dat$frames_bees[an_dat$weak == 1] <- 0
 
 an_dat$trt
-
-```
-
-## Analyze and plot day 77 Colony strength
-
-```{r}
-an_dat %>%
-  ggplot(aes(x = trt_label, y = frames_bees)) +
-  geom_boxplot(fill = "#031C38", outlier.shape = NA, alpha = 0.6, color = "black") +
-  stat_summary(fun.y=mean, geom="point", shape=20, size=10, color="black", fill="black") +
-  #xlab("Treatment") +
-  ylab("Frames of bees") +
-  theme_classic( base_size = 30) +
-  theme(axis.text.x=element_text(angle=45,hjust=1), axis.title.x=element_blank())
-
-ggsave("./2023-11-05 liebefeld_bees v1.png", width = 12, height = 8.625, units = "in")
-
-ggsave("./2023-11-05 liebefeld_bees v2.png", width = 12, height = 6.5, units = "in")
-
-m.bees <- lm(frames_bees~trt, data = an_dat)
-summary(m.bees)
-summary(aov(m.bees))
-anova(m.bees) # No effect of treatment (p=0.9999)
-```
-
-
-```{r}
-plot(m.bees)
-```
-
-
-## Analyze and plots the data for colony weight
-
-```{r}
-m.weight <- lm(post_lbs_C~trt, data = an_dat)
-summary(m.weight)
-
-an_dat %>%
-  ggplot(aes(x = trt_label, y = post_lbs_C)) +
-  geom_boxplot(fill = "#031C38", outlier.shape = NA, alpha = 0.6, color = "black") +
-  stat_summary(fun.y=mean, geom="point", shape=20, size=10, color="black", fill="black") +
-  #xlab("Treatment") +
-  ylab("Weight (lbs)") +
-  theme_classic( base_size = 30) +
-  theme(axis.text.x=element_text(angle=45,hjust=1), axis.title.x=element_blank())
-
-ggsave("./2023-11-05 weight v1.png", width = 12, height = 8.625, units = "in")
 ```
 
 
 
-# Which kinds of colony issues were present in how many numbers per group
+# Descriptive stats - including some plotting
+Which colony issues were present in how many numbers per group
 
 ```{r}
 # Failure to mate per treatment - within non-EFB colonies
@@ -457,9 +384,6 @@ loss_summary <- paper %>%
             survived_num = sum(survived),
             survived.p = survived_num/n
           )
-
-
-
 ```
 
 
@@ -535,7 +459,7 @@ loss_summary_pivoted %>%
   theme_classic(base_size = 30) + 
   theme(axis.text.x=element_text(angle=45,hjust=1), axis.title.x=element_blank(), legend.title = element_blank())
   
-ggsave("./2023-11-04 CoD v3.png", width = 12, height = 8.625, units = "in")
+# ggsave("./2023-11-04 CoD v3.png", width = 12, height = 8.625, units = "in")
 
 
 # Without "weak"
@@ -550,7 +474,7 @@ loss_summary_pivoted %>%
   theme_classic(base_size = 30) + 
   theme(axis.text.x=element_text(angle=45,hjust=1), axis.title.x=element_blank(), legend.title = element_blank())
   
-ggsave("./2023-11-04 CoD v5.png", width = 12, height = 8.625, units = "in")
+# ggsave("./2023-11-04 CoD v5.png", width = 12, height = 8.625, units = "in")
 
 
 ```
@@ -558,8 +482,6 @@ ggsave("./2023-11-04 CoD v5.png", width = 12, height = 8.625, units = "in")
 
 Only "weak" colonies
 
-
-Dan
 ```{r}
 
 loss_summary %>% 
@@ -570,7 +492,7 @@ loss_summary %>%
   theme_classic(base_size = 30) + 
   theme(axis.text.x=element_text(angle=45,hjust=1), axis.title.x=element_blank(), legend.title = element_blank())
 
-ggsave("./2023-11-05 Count of weak v1.png", width = 12, height = 4, units = "in")
+# ggsave("./2023-11-05 Count of weak v1.png", width = 12, height = 4, units = "in")
 ```
 
 
@@ -579,8 +501,6 @@ ggsave("./2023-11-05 Count of weak v1.png", width = 12, height = 4, units = "in"
 # summarize population based on frame level data - into population per colony
 
 ## Sum the population per colony in frame level dataset
-
-DANDAN
 
 ```{r}
 
@@ -612,7 +532,6 @@ frame3 <- frame2 %>%
   filter(collection_date %in% c("2022-05-24", "2022-05-31", "2022-06-07", "2022-06-11")) %>% 
   arrange(colony_num)
 
-write.csv(frame3, "frame3.csv")
 
 # There are anywhere from 36 to 72 records per colony - assume that no record was made where the number of bees was 0
 

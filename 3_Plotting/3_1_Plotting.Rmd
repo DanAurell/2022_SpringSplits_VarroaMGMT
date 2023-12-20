@@ -7,9 +7,40 @@ output:
     keep_md: yes
 ---
 
+Plot day 77 colony strength
+```{r}
+an_dat %>%
+  ggplot(aes(x = trt_label, y = frames_bees)) +
+  geom_boxplot(fill = "#031C38", outlier.shape = NA, alpha = 0.6, color = "black") +
+  stat_summary(fun.y=mean, geom="point", shape=20, size=10, color="black", fill="black") +
+  #xlab("Treatment") +
+  ylab("Frames of bees") +
+  theme_classic( base_size = 30) +
+  theme(axis.text.x=element_text(angle=45,hjust=1), axis.title.x=element_blank())
+
+# ggsave("./2023-11-05 liebefeld_bees v1.png", width = 12, height = 8.625, units = "in")
+
+# ggsave("./2023-11-05 liebefeld_bees v2.png", width = 12, height = 6.5, units = "in")
+
+```
+
+Plot post-honey hive weight
+```{r}
+an_dat %>%
+  ggplot(aes(x = trt_label, y = post_lbs_C)) +
+  geom_boxplot(fill = "#031C38", outlier.shape = NA, alpha = 0.6, color = "black") +
+  stat_summary(fun.y=mean, geom="point", shape=20, size=10, color="black", fill="black") +
+  #xlab("Treatment") +
+  ylab("Weight (lbs)") +
+  theme_classic( base_size = 30) +
+  theme(axis.text.x=element_text(angle=45,hjust=1), axis.title.x=element_blank())
+
+# ggsave("./2023-11-05 weight v1.png", width = 12, height = 8.625, units = "in")
+```
+
 
 Potentially useful code
-```{r}
+```{r eval=FALSE}
 datum3 <- datum3 %>%
   mutate(trt = fct_relevel(trt, "Control", "Apivar", "Taktic", "Dribble18", "Vapor18", "ManyDribble", "HopGuard"))
 

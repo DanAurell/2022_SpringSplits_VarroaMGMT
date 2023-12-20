@@ -6,3 +6,27 @@ output:
   html_document: 
     keep_md: yes
 ---
+
+
+## Analyze day 77 Colony strength
+
+```{r}
+m.bees <- lm(frames_bees~trt, data = an_dat) # Next run should include a yard level random effect
+summary(m.bees)
+summary(aov(m.bees))
+anova(m.bees) # No effect of treatment (p=0.9999)
+plot(m.bees)
+```
+
+## Analyze data for colony weight post honey production
+
+```{r}
+m.weight <- lm(post_lbs_C~trt, data = an_dat)
+summary(m.weight)
+```
+
+
+
+
+
+
