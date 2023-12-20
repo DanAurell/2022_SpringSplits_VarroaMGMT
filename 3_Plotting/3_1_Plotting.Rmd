@@ -7,6 +7,16 @@ output:
     keep_md: yes
 ---
 
+# Read in data
+
+```{r}
+an_dat <- read.csv("../2_Analysis/data_prepared/an_dat.csv")
+# Other analyzed data datum <- read.csv("./...")
+```
+
+
+
+
 Plot day 77 colony strength
 ```{r}
 an_dat %>%

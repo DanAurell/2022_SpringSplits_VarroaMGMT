@@ -8,6 +8,13 @@ output:
 ---
 
 
+# Read in data
+
+```{r}
+an_dat <- read.csv("./data_prepared/an_dat.csv")
+```
+
+
 ## Analyze day 77 Colony strength
 
 ```{r}

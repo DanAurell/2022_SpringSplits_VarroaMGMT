@@ -354,5 +354,10 @@ an_dat$frames_bees[an_dat$weak == 1] <- 0
 an_dat$trt
 ```
 
+# Write an_dat for use in future steps
+
+```{r}
+write.csv(an_dat, "../2_Analysis/data_prepared/an_dat.csv")
+```
 
 
