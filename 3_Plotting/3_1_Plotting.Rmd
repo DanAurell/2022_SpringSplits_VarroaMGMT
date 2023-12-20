@@ -18,9 +18,9 @@ an_dat %>%
   theme_classic( base_size = 30) +
   theme(axis.text.x=element_text(angle=45,hjust=1), axis.title.x=element_blank())
 
-# ggsave("./2023-11-05 liebefeld_bees v1.png", width = 12, height = 8.625, units = "in")
+# ggsave("./outputs/2023-11-05 liebefeld_bees v1.png", width = 12, height = 8.625, units = "in")
 
-# ggsave("./2023-11-05 liebefeld_bees v2.png", width = 12, height = 6.5, units = "in")
+# ggsave("./outputs/2023-11-05 liebefeld_bees v2.png", width = 12, height = 6.5, units = "in")
 
 ```
 
@@ -35,7 +35,7 @@ an_dat %>%
   theme_classic( base_size = 30) +
   theme(axis.text.x=element_text(angle=45,hjust=1), axis.title.x=element_blank())
 
-# ggsave("./2023-11-05 weight v1.png", width = 12, height = 8.625, units = "in")
+# ggsave("./outputs/2023-11-05 weight v1.png", width = 12, height = 8.625, units = "in")
 ```
 
 
