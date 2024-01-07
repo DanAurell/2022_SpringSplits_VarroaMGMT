@@ -7,14 +7,24 @@ output:
     keep_md: yes
 ---
 
+# Setup
+
+```{r}
+library(tidyverse)
+# library(lme4)
+```
 
 # Read in data
 
 ```{r}
 an_dat <- read.csv("./data_prepared/an_dat.csv")
+
+an_dat <- an_dat %>%
+  mutate(trt_label = fct_relevel(trt_label, "Control", "Apivar", "Amitraz E.C.", "OA Dribble",  "5x OA Dribble","OA Vapor", "HopGuard"))
+
 ```
 
-# Analysis of queen establishment
+# Queen establishment success Y/N
 
 Criterion: did they begin laying worker eggs by Day 30?
 - If not by that time we culled them
@@ -37,7 +47,9 @@ Dates to look at
 ```{r}
 an_dat %>% 
   filter(start_layday <= 23)
-  # Of the 138 colonies that had a layday of 23 or lower, none were DL on d44
+  # Of the 138 colonies that had a layday of 23 or lower, all were QR/QS on d30 and none were DL on d44
+
+# All colonies whose queens started laying on day 23 or before, did successfully lay worker eggs
 
 
 an_dat %>% 
@@ -50,12 +62,10 @@ an_dat %>%
 ```
 
 Refined criterion:
-- Eggs yes on d30
-- If start_layday >=24, then consider established only if QR/QS at ch44_qstatus
+- Laying worker brood on day 30 (only able to asses for layday <=23)
+- If start_layday >=24, then consider established if QR/QS at ch44_qstatus
 
-Columns to look at
-
-
+## Assemble dataset to determine which queens successfully established
 ```{r}
 # names(an_dat)
 
@@ -63,7 +73,7 @@ Columns to look at
 establish_dat <- an_dat %>% 
   select(colony_num,
          new_yard,
-         trt,
+         trt_label,
          ch18_eggs,
          ch18_qstatus,
          ch18_ageoldest,
@@ -75,17 +85,119 @@ establish_dat <- an_dat %>%
          start_layday
          )
 
+# Success column means "did they ever lay worker eggs"
 establish_dat$success <- "NA"
 
-# Dan work on coding successes
+# Nested ifelse
+establish_dat <- establish_dat %>% 
+  mutate(
+    success = ifelse(ch30_qstatus %in% c("QR", "QS") & start_layday <= 23, "Y", 
+                     ifelse(start_layday >= 24 & ch44_qstatus %in% c("QR", "QS"), "Y", "N"))
+  )
 
 ```
 
 
+## Analyze what proportion of queens successfully established
+- Overall
+- Per treatment
 
 
+Make a table
+```{r}
+# Overall
+establish_dat %>% 
+  group_by(success) %>% 
+  summarise(n = n()) %>% 
+  spread(success, n)
+# Overall, 23 failed and 154/177 successfully established
 
-Number of colonies with eggs on d18
+success_all_tab <- data.frame(trt_label = "All", Y = 154, N=23)
+
+
+# By treatment
+success_trt_tab <- establish_dat %>% 
+  group_by(trt_label, success) %>% 
+  summarise(n = n()) %>% 
+  spread(success, n) %>% 
+  ungroup()
+
+success_trt_tab <- success_trt_tab %>% 
+  mutate(N = ifelse(is.na(N), 0, N)) %>% 
+  select(trt_label, Y, N)
+
+success_tab <- rbind(success_trt_tab, success_all_tab)
+
+# Set the order it will print in
+success_tab <- success_tab %>%
+  mutate(trt_label = fct_relevel(trt_label, "Control", "Apivar", "Amitraz E.C.", "OA Dribble",  "5x OA Dribble","OA Vapor", "HopGuard", "All"))
+
+success_tab <- success_tab %>% 
+  mutate(total = Y + N,
+         perc = 100*Y/total
+         )
+
+success_tab %>% 
+  arrange(trt_label)
+
+```
+
+# Determine length of brood break for each colony
+
+```{r}
+break_dat <- establish_dat %>% 
+  filter(success == "Y") %>% 
+  select(colony_num, trt_label, start_layday) %>% 
+  mutate(emerge_day = 21,
+         receptive_day = start_layday + 8,
+         days_break = receptive_day - emerge_day,
+         completeYN = ifelse(days_break > 0, "Complete", "Not Complete"),
+         completeYN = fct_relevel(completeYN, "Not Complete", "Complete")
+         )
+
+# Some basic plots to visualize data
+break_dat %>% 
+  ggplot(aes(x=days_break)) +
+  geom_histogram(binwidth = 1)
+
+break_dat %>% 
+  ggplot(aes(x=days_break)) +
+  geom_density()
+
+break_dat %>%
+  ggplot(aes(y=trt_label, x=days_break)) +
+  geom_violin()
+
+
+# Working on a final figure
+
+## Colorway 1
+break_dat %>%
+  ggplot(aes(x=trt_label, y=days_break)) + # Length of brood break
+  geom_boxplot(outlier.shape = NA) +
+  geom_hline(yintercept = 0, color = "red", linetype = "dashed", alpha = 0.5) +
+  geom_jitter(alpha=0.2, width = 0.2, height = 0.1) +
+  stat_summary(fun.y=mean, geom="point", shape=20, size=5, alpha = 0.5, color = "red") +
+  scale_x_discrete(limits = rev) +
+  ylab("Length of brood break (days)") +
+  theme_classic(base_size = 18) +
+  theme(axis.title.y=element_blank()) +
+  coord_flip()
+
+## Colorway 2
+break_dat %>%
+  ggplot(aes(x=trt_label, y=days_break)) + # Length of brood break
+  geom_boxplot(outlier.shape = NA) +
+  geom_jitter(aes(color = completeYN), alpha=0.4, width = 0.2, height = 0.1) +
+  stat_summary(fun.y=mean, geom="point", shape=20, size=5, alpha = 0.5) +
+  scale_x_discrete(limits = rev) +
+  ylab("Length of brood break (days)") +
+  theme_classic(base_size = 18) +
+  theme(axis.title.y=element_blank(), legend.position = "none") +
+  coord_flip()
+
+
+```
 
 
 
