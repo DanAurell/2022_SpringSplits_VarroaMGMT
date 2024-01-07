@@ -22,6 +22,7 @@ Criterion: did they begin laying worker eggs by Day 30?
 Data to use: all
 - For other variables that relate to colony development over time, we exclude colonies that ever developed EFB
 - Since this is a short-term measure, we can include these EFB colonies
+- First time EFB was observed was d44
 - What time frame to look at...
 
 Dates to look at
@@ -29,7 +30,63 @@ Dates to look at
 - Simplistically we could just look and see were they QR on day 30 or not?
 - But a few colonies had young brood on day 30, so we can't necessarily tell yet if they are drone layers - so let's also look at day 44 data
 - It is only ambiguous if they were L3 or lower on day 30
-- L3 on day 30 corresponds to anything with a layday of ___ or less
+- L3 on day 30 corresponds to anything with a layday of 24 or higher
+  - Of the 138 colonies that had a layday of 23 or lower, none were DL on d44
+  - Of the 
+
+```{r}
+an_dat %>% 
+  filter(start_layday <= 23)
+  # Of the 138 colonies that had a layday of 23 or lower, none were DL on d44
+
+
+an_dat %>% 
+  filter(start_layday >= 24) 
+  # Of the 27 colonies that had a layday of 24 or higher...
+an_dat %>% 
+  filter(start_layday >= 24) %>% 
+  filter(ch44_qstatus == "DL")
+  # ...8 were DL on d44
+```
+
+Refined criterion:
+- Eggs yes on d30
+- If start_layday >=24, then consider established only if QR/QS at ch44_qstatus
+
+Columns to look at
+
+
+```{r}
+# names(an_dat)
+
+# Make a manageable dataset
+establish_dat <- an_dat %>% 
+  select(colony_num,
+         new_yard,
+         trt,
+         ch18_eggs,
+         ch18_qstatus,
+         ch18_ageoldest,
+         ch30_eggs,
+         ch30_qstatus,
+         ch30_ageoldest,
+         ch44_eggs,
+         ch44_qstatus,
+         start_layday
+         )
+
+establish_dat$success <- "NA"
+
+# Dan work on coding successes
+
+```
+
+
+
+
+
+Number of colonies with eggs on d18
+
 
 
 
