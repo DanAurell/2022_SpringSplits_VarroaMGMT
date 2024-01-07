@@ -1,0 +1,50 @@
+---
+title: "Analysis - Varroa"
+author: "Dan Aurell"
+date: "2024-01-07"
+output:   
+  html_document: 
+    keep_md: yes
+---
+
+# Read in data
+
+```{r}
+an_dat <- read.csv("./data_prepared/an_dat.csv")
+```
+
+
+# Dataset of colonies that established and didn't have EFB
+```{r}
+# Filter out the colonies that had disqualifying issues
+# Include the 5 colonies that were pulled out for being weak
+ <- an_dat %>% 
+  filter(efb + failed + QL + DL == 0)
+
+an_dat$frames_bees[an_dat$weak == 1] <- 0
+
+an_dat$trt
+```
+
+
+
+## Analyze day 77 Colony strength
+
+```{r}
+m.bees <- lm(frames_bees~trt, data = an_dat) # Next run should include a yard level random effect
+summary(m.bees)
+summary(aov(m.bees))
+anova(m.bees) # No effect of treatment (p=0.9999)
+plot(m.bees)
+```
+
+## Analyze data for colony weight post honey production
+
+```{r}
+m.weight <- lm(post_lbs_C~trt, data = an_dat)
+summary(m.weight)
+```
+
+
+
+

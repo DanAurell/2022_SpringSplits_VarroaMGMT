@@ -1,5 +1,5 @@
 ---
-title: "Untitled"
+title: "Analysis - queens, survival"
 author: "Dan Aurell"
 date: "2023-05-28"
 output:   
@@ -14,23 +14,25 @@ output:
 an_dat <- read.csv("./data_prepared/an_dat.csv")
 ```
 
+# Analysis of queen establishment
 
-## Analyze day 77 Colony strength
+Criterion: did they begin laying worker eggs by Day 30?
+- If not by that time we culled them
 
-```{r}
-m.bees <- lm(frames_bees~trt, data = an_dat) # Next run should include a yard level random effect
-summary(m.bees)
-summary(aov(m.bees))
-anova(m.bees) # No effect of treatment (p=0.9999)
-plot(m.bees)
-```
+Data to use: all
+- For other variables that relate to colony development over time, we exclude colonies that ever developed EFB
+- Since this is a short-term measure, we can include these EFB colonies
+- What time frame to look at...
 
-## Analyze data for colony weight post honey production
+Dates to look at
+- Day 30 data is the most key... 
+- Simplistically we could just look and see were they QR on day 30 or not?
+- But a few colonies had young brood on day 30, so we can't necessarily tell yet if they are drone layers - so let's also look at day 44 data
+- It is only ambiguous if they were L3 or lower on day 30
+- L3 on day 30 corresponds to anything with a layday of ___ or less
 
-```{r}
-m.weight <- lm(post_lbs_C~trt, data = an_dat)
-summary(m.weight)
-```
+
+
 
 
 

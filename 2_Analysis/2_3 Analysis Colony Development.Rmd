@@ -1,0 +1,14 @@
+---
+title: "Analysis - Colony development"
+author: "Dan Aurell"
+date: "2024-01-07"
+output:   
+  html_document: 
+    keep_md: yes
+---
+
+# Read in data
+
+```{r}
+an_dat <- read.csv("./data_prepared/an_dat.csv")
+```

@@ -254,12 +254,14 @@ colony4 <- colony4 %>%
          ch77_efb = efb_observed
          )
 
+
 # Remove duplicate rows introduced by the app
 colony4 <- colony4[!duplicated(colony4[, 1]), ]
 
-paper <- left_join(paper, colony4)
+# "pa" means "paper_app"
+pa <- left_join(paper, colony4)
 
-paper <- paper %>% 
+pa <- pa %>% 
   mutate(
     trt_label = if_else(trt == "1-Control", "Control",
               if_else(trt == "2-Apivar", "Apivar",
@@ -271,27 +273,27 @@ paper <- paper %>%
                                                            )
                                                    )))))))
 
-paper <- paper %>%
+pa <- pa %>%
      mutate(trt_label = fct_relevel(trt_label, "Control", "Apivar", "Amitraz E.C.", "OA Dribble", "5x OA Dribble", "OA Vapor", "HopGuard"))
 
 ```
 
-## Prep paper data
+## Prep pa data
 
 Tag colonies that had EFB by day 77
 ```{r}
 
-paper$efb_columns <- paste(
-  paper$reason_removal, 
-  paper$ch77_efb # This did not add any additional ones
+pa$efb_columns <- paste(
+  pa$reason_removal, 
+  pa$ch77_efb # This did not add any additional ones
   )
 
-paper$efb <- ifelse(grepl("EFB", paper$efb_columns), 1, 0)
+pa$efb <- ifelse(grepl("EFB", pa$efb_columns), 1, 0)
 
 
 
 # Number of EFB colonies per treatment
-paper %>%
+pa %>%
   filter(efb == 1) %>% 
   group_by(trt) %>% 
   summarize(n = n()) # Very even across groups
@@ -310,20 +312,20 @@ Determine queen issues including day 77
   # If QL or DL present in columns ch44_qstatus, ch58_qstatus, ch72_qstatus, 
 
 
-paper$qstatuses <- paste(
-  paper$ch44_qstatus, 
-  paper$ch58_qstatus, 
-  paper$ch72_qstatus, 
-  paper$ch77_qstatus,
-  paper$reason_removal
+pa$qstatuses <- paste(
+  pa$ch44_qstatus, 
+  pa$ch58_qstatus, 
+  pa$ch72_qstatus, 
+  pa$ch77_qstatus,
+  pa$reason_removal
   )
 
-paper$failed <- ifelse(grepl("Failed", paper$reason_removal), 1, 0)
-paper$weak <- ifelse(grepl("Weak|Small", paper$reason_removal), 1, 0)
-paper$QL <- ifelse(grepl("QL|VS|VQS|VQ", paper$qstatuses), 1, 0)
-paper$DL <- ifelse(grepl("DL", paper$qstatuses), 1, 0)
+pa$failed <- ifelse(grepl("Failed", pa$reason_removal), 1, 0)
+pa$weak <- ifelse(grepl("Weak|Small", pa$reason_removal), 1, 0)
+pa$QL <- ifelse(grepl("QL|VS|VQS|VQ", pa$qstatuses), 1, 0)
+pa$DL <- ifelse(grepl("DL", pa$qstatuses), 1, 0)
 
-paper <- paper %>% 
+pa <- pa %>% 
   mutate(died = ifelse(failed + weak + QL + DL > 0, 1, 0),
          survived = ifelse(failed + weak + QL + DL == 0, 1, 0)
          )
@@ -331,32 +333,23 @@ paper <- paper %>%
 
 ```
 
-## Add resources data to paper data
+## Add resources data to pa data
 ```{r}
-paper <- left_join(paper, resources)
+pa <- left_join(pa, resources)
 ```
 
 Correct the hive weight based on the number of supers and 11 lbs per super
 ```{r}
-paper <- paper %>% 
+pa <- pa %>% 
   mutate(post_lbs_C = post_lbs - 11*(post_supers_use-1))
 ```
 
-# Make analytical dataset an_dat
-```{r}
-# Filter out the colonies that had disqualifying issues
-# Include the 5 colonies that were pulled out for being weak
-an_dat <- paper %>% 
-  filter(efb + failed + QL + DL == 0)
 
-an_dat$frames_bees[an_dat$weak == 1] <- 0
-
-an_dat$trt
-```
 
 # Write an_dat for use in future steps
-
 ```{r}
+an_dat <- pa
+
 write.csv(an_dat, "../2_Analysis/data_prepared/an_dat.csv")
 ```
 
