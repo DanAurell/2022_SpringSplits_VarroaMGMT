@@ -39,12 +39,13 @@ Dates to look at
 - Day 30 data is the most key... 
 - Simplistically we could just look and see were they QR on day 30 or not?
 - But a few colonies had young brood on day 30, so we can't necessarily tell yet if they are drone layers - so let's also look at day 44 data
-- It is only ambiguous if they were L3 or lower on day 30
-- L3 on day 30 corresponds to anything with a layday of 24 or higher
-  - Of the 138 colonies that had a layday of 23 or lower, none were DL on d44
-  - Of the 
+- It is only ambiguous if the brood age was L3 or lower on day 30
+  - L3 on day 30 corresponds to anything with a layday of 24 or higher
+
 
 ```{r}
+# Exploring how to assess 
+
 an_dat %>% 
   filter(start_layday <= 23)
   # Of the 138 colonies that had a layday of 23 or lower, all were QR/QS on d30 and none were DL on d44
@@ -65,7 +66,7 @@ Refined criterion:
 - Laying worker brood on day 30 (only able to asses for layday <=23)
 - If start_layday >=24, then consider established if QR/QS at ch44_qstatus
 
-## Assemble dataset to determine which queens successfully established
+## Determine which queens successfully established
 ```{r}
 # names(an_dat)
 
@@ -88,7 +89,7 @@ establish_dat <- an_dat %>%
 # Success column means "did they ever lay worker eggs"
 establish_dat$success <- "NA"
 
-# Nested ifelse
+# Nested ifelse to implement criterion
 establish_dat <- establish_dat %>% 
   mutate(
     success = ifelse(ch30_qstatus %in% c("QR", "QS") & start_layday <= 23, "Y", 
@@ -98,12 +99,10 @@ establish_dat <- establish_dat %>%
 ```
 
 
-## Analyze what proportion of queens successfully established
-- Overall
+## Summarize what proportion of queens successfully established
 - Per treatment
+- Overall
 
-
-Make a table
 ```{r}
 # Overall
 establish_dat %>% 
@@ -126,11 +125,11 @@ success_trt_tab <- success_trt_tab %>%
   mutate(N = ifelse(is.na(N), 0, N)) %>% 
   select(trt_label, Y, N)
 
-success_tab <- rbind(success_trt_tab, success_all_tab)
+success_tab <- rbind(success_all_tab, success_trt_tab)
 
 # Set the order it will print in
 success_tab <- success_tab %>%
-  mutate(trt_label = fct_relevel(trt_label, "Control", "Apivar", "Amitraz E.C.", "OA Dribble",  "5x OA Dribble","OA Vapor", "HopGuard", "All"))
+  mutate(trt_label = fct_relevel(trt_label, "All", "Control", "Apivar", "Amitraz E.C.", "OA Dribble",  "5x OA Dribble","OA Vapor", "HopGuard"))
 
 success_tab <- success_tab %>% 
   mutate(total = Y + N,
@@ -142,9 +141,20 @@ success_tab %>%
 
 ```
 
+There's no need to statistically analyze this. There's no biological basis to hypothesize that treatments would increase the establishment success of queens.
+
+There is biological basis to hypothesize that treatments might harm queens, thus decreasing establishment success.
+
+No treatment had lower success than Control, so we just state that there was no indication that any treatment lowered establishment success.
+
+
 # Determine length of brood break for each colony
 
 ```{r}
+# It's only sensible to look at the length of brood break for colonies which DID successfully establish. Thus filter to success = "Y"
+
+# A worker brood cell becomes receptive to Varroa on day 8, and emerges on day 21
+
 break_dat <- establish_dat %>% 
   filter(success == "Y") %>% 
   select(colony_num, trt_label, start_layday) %>% 
@@ -171,7 +181,7 @@ break_dat %>%
 
 # Working on a final figure
 
-## Colorway 1
+## Graph option 1 - preferred
 break_dat %>%
   ggplot(aes(x=trt_label, y=days_break)) + # Length of brood break
   geom_boxplot(outlier.shape = NA) +
@@ -183,8 +193,10 @@ break_dat %>%
   theme_classic(base_size = 18) +
   theme(axis.title.y=element_blank()) +
   coord_flip()
+```
 
-## Colorway 2
+```{r}
+## Graph option 2 - not preferred
 break_dat %>%
   ggplot(aes(x=trt_label, y=days_break)) + # Length of brood break
   geom_boxplot(outlier.shape = NA) +
@@ -195,9 +207,15 @@ break_dat %>%
   theme_classic(base_size = 18) +
   theme(axis.title.y=element_blank(), legend.position = "none") +
   coord_flip()
-
-
 ```
+
+
+It is possible that treatments could increase the length of brood break.
+- I could statistically analyze this.
+- Referring to the first graph option, some of the right-most colonies with the longest brood breaks... those are probably colonies whose queen cell didn't take and actually a queen from an emergency cell established. There may be an opportunity to highlight this by adding another dashed line
+
+Eventually, see if efficacy of treatment increases with the length of brood break - I would expect this relationship to differ by treatment.
+
 
 
 

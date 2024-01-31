@@ -113,7 +113,7 @@ unique(frame2$colony_num)
    arrange(desc(n))
 
 ```
-## Deal with "extra bees"
+## Deal with "extra bees" so that it is counted only once per box
 ```{r}
 frame2 %>% 
   group_by(date, colony_num) %>% 
@@ -140,7 +140,7 @@ frame2 <- frame2 %>%
 ```
 
 
-Correct for different box/frame sizes
+Correct resource coverages for different box/frame sizes - express all as percentage of one side of a Deep frame
 ```{r}
 # Convert to Deep-frame equivalents
 frame2 <- frame2 %>% mutate(
@@ -160,7 +160,10 @@ frame2 <- frame2 %>%
   )
 ```
 
-## Summarize per colony
+## Summarize into a "resources" data frame that sums resources for each colony, since the colony is the experimental unit
+
+Also convert from percentages of frame-sides to frames of [resource]
+
 ```{r}
 resources <- frame2 %>% 
   group_by(colony_num) %>% 
@@ -205,7 +208,7 @@ colony2 <- colony %>%
 
 
 
-# Understand data
+# Understand data and how to analyze it
 
 How to identify just relevant app data for day 77
 "colony" and "frame" are the colony and frame level app data
@@ -235,7 +238,7 @@ colony2 %>%
 # colony3 is filtered to the data of interest
 colony3 <- colony2 %>% 
   filter(collection_date %in% c("2022-05-24", "2022-05-31", "2022-06-07", "2022-06-11")) %>% 
-  filter(!is.na(queen_status)) %>% 
+  filter(!is.na(queen_status)) %>% # removes some duplicates introduced by app
   arrange(colony_num)
 
 unique(colony3$colony_num) #138 including the blank space
