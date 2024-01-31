@@ -1,0 +1,100 @@
+---
+title: "Analysis - queens - exploratory"
+author: "Dan Aurell"
+date: "2024-01-31"
+output:   
+  html_document: 
+    keep_md: yes
+---
+
+
+```{r}
+# My data appear potentially bimodal. Is that an artefact of my data collection time points - or is there something biological going on?
+
+# Why do these not have the same shapoe???
+
+hist(break_dat$age_start_lay)
+
+hist(break_dat$age_start_lay, breaks = length(unique(break_dat$age_start_lay)))
+hist(break_dat$days_break, breaks = length(unique(break_dat$days_break)))
+
+
+# define mode() function
+mode = function() {
+  
+  # calculate mode of marks  
+  return(names(sort(-table(break_dat$age_start_lay)))[1])
+}
+
+# call mode() function
+mode()
+
+# If breaking up into 2 distributions, what to do with queens that mated at 17 days of age?
+# See if use queen age >15 or >17
+
+
+```
+
+- See what happens if use all data <18 days of age, discard that >18 days of age
+
+```{r}
+break_dat2 <- break_dat %>% 
+  filter(age_start_lay < 18)
+         
+break_dat2 %>%
+  ggplot(aes(x=trt_label, y=days_break)) + # Length of brood break
+  geom_boxplot(outlier.shape = NA) +
+  geom_hline(yintercept = 0, color = "red", linetype = "dashed", alpha = 0.5) +
+  geom_jitter(alpha=0.2, width = 0.2, height = 0.1) +
+  stat_summary(fun.y=mean, geom="point", shape=20, size=5, alpha = 0.5, color = "red") +
+  scale_x_discrete(limits = rev) +
+  ylab("Length of brood break (days)") +
+  theme_classic(base_size = 18) +
+  theme(axis.title.y=element_blank()) +
+  coord_flip()
+         
+```
+
+
+
+
+
+Analyze queen data:
+- Did treatments cause delayed queen establishment?
+- Does efficacy of treatment increase with the length of brood break? - 
+  - Analyze by treatment
+
+
+
+Check for overdispersion
+```{r}
+break_dat %>%
+ summarise(
+ means = mean(days_break),
+ variances = var(days_break),
+ ratio = variances/means)
+# ratio of 7; Consider something other than normal distribution???
+```
+
+
+```{r}
+m.layday <- lm(days_break ~ trt_label, data = break_dat)
+summary(m.layday)
+
+
+m.layday2 <- lm(days_break ~ trt_label, data = break_dat2)
+summary(m.layday2)
+
+
+hist(resid(m.layday))
+hist(resid(m.layday2))
+
+
+qqPlot(m.layday)
+
+
+```
+
+
+
+

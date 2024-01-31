@@ -11,7 +11,8 @@ output:
 
 ```{r}
 library(tidyverse)
-# library(lme4)
+library(lme4)
+library(car)
 ```
 
 # Read in data
@@ -158,7 +159,8 @@ No treatment had lower success than Control, so we just state that there was no 
 break_dat <- establish_dat %>% 
   filter(success == "Y") %>% 
   select(colony_num, trt_label, start_layday) %>% 
-  mutate(emerge_day = 21,
+  mutate(age_start_lay = start_layday - 2,
+          emerge_day = 21,
          receptive_day = start_layday + 8,
          days_break = receptive_day - emerge_day,
          completeYN = ifelse(days_break > 0, "Complete", "Not Complete"),
@@ -209,12 +211,12 @@ break_dat %>%
   coord_flip()
 ```
 
-
-It is possible that treatments could increase the length of brood break.
-- I could statistically analyze this.
-- Referring to the first graph option, some of the right-most colonies with the longest brood breaks... those are probably colonies whose queen cell didn't take and actually a queen from an emergency cell established. There may be an opportunity to highlight this by adding another dashed line
-
-Eventually, see if efficacy of treatment increases with the length of brood break - I would expect this relationship to differ by treatment.
+To potentially look at:
+1. Statistically analyze do any treatments cause delay in queen establishment?
+  - Note that brood break length has what may be a bimodal distribution - which would make sense if some of the late colonies' queens derive from an emergency cell, not the one we placed. Will cause difficulties to use brood break length or establishment time as a response variable.
+1a) Are some queens our cell queens and others are emergency queens?  
+  - One way to pose question: What proportion of queens in each treatment established before 18 days post-placement?
+2. Use brood break length as a predictor of efficacy against Varroa
 
 
 
