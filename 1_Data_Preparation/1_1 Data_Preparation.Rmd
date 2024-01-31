@@ -42,7 +42,7 @@ library(stringr)
 
 ## Read csv
 ```{r}
-paper <- read.csv("./data/manual_merge_paper_2023-05-23.csv")
+paper <- read.csv("./data/manual_merge_paper_2023-05-23 v2.csv")
 colony <- read.csv("./data/2022-06-14_125633__techteam__all_sample_export.csv", skip = 9, na.strings = c("", " ", "NA"))
 frame <- read.csv("./data/2022-06-14_125650__techteam__frame_side_export.csv")
 
@@ -302,6 +302,39 @@ pa %>%
   summarize(n = n()) # Very even across groups
 ```
 
+Impute bees in alcohol wash for 3 colonies on day 77
+```{r}
+pa %>% 
+  filter(ch77_wash_workers == "Missing")
+# 22-078
+# 22-108
+# 22-124
+
+wash77_vec <- pa$ch77_wash_workers
+wash77_vec <- as.numeric(wash77_vec[!(wash77_vec == "Missing")])
+mean(wash77_vec, na.rm = TRUE) # 358.68
+
+wash77_vec <- pa$ch77_wash_drones
+wash77_vec <- as.numeric(wash77_vec[!(wash77_vec == "Missing")])
+mean(wash77_vec, na.rm = TRUE) # 3.59
+
+# To impute
+
+issues <- c("22-078", "22-108", "22-124")
+
+pa <- pa %>% 
+  mutate(
+    ch77_wash_workers = ifelse(colony_num %in% issues, 359, ch77_wash_workers),
+    ch77_wash_drones = ifelse(colony_num %in% issues, 4, ch77_wash_drones),
+    ch77_wash_queens = ifelse(colony_num %in% issues, 0, ch77_wash_queens),
+    )
+
+```
+
+
+
+
+
 Determine queen issues including day 77
 ```{r}
 # Survival to day 77 - assess based on absence of other issues
@@ -341,10 +374,12 @@ pa <- pa %>%
 pa <- left_join(pa, resources)
 ```
 
-Correct the hive weight based on the number of supers and 11 lbs per super
+Correct the hive weight based on the number of supers and 12 lbs per super
+12.005 was mean (min-max: 11.1-12.8) of 20 supers weighed before putting them on
+
 ```{r}
 pa <- pa %>% 
-  mutate(post_lbs_C = post_lbs - 11*(post_supers_use-1))
+  mutate(post_lbs_C = post_lbs - 12*(post_supers_use-1))
 ```
 
 

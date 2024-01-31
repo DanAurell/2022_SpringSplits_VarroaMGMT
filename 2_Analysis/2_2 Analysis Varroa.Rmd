@@ -7,11 +7,54 @@ output:
     keep_md: yes
 ---
 
+# Setup
+
+```{r}
+library(tidyverse)
+library(lme4)
+```
+
+
 # Read in data
 
 ```{r}
 an_dat <- read.csv("./data_prepared/an_dat.csv")
 ```
+
+# Prepare data for Varroa infestation analysis
+```{r}
+class(an_dat$ch2_wash_workers)
+class(an_dat$ch2_wash_drones)
+class(an_dat$ch2_wash_queens)
+
+class(an_dat$ch77_wash_workers) # Because 3 rows say "missing"
+class(an_dat$ch77_wash_drones)
+class(an_dat$ch77_wash_queens)
+
+class(an_dat$chpost_wash_workers) # Issues w colony 22-049
+class(an_dat$chpost_wash_drones)
+class(an_dat$chpost_wash_queens)
+
+
+an_dat %>% 
+  filter(efb == 0) %>% 
+  mutate(ch2_wash_bees = ch2_wash_workers + ch2_wash_drones + ch2_wash_queens,
+         ch77_wash_bees = ch77_wash_workers + ch77_wash_drones + ch77_wash_queens,
+         chpost_wash_bees = chpost_wash_workers + chpost_wash_drones + chpost_wash_queens,
+         ch2_perc_var = 100*ch2_var_total/ch2_wash_bees,
+         ch77_perc_var = 100*ch77_var_total/ch77_wash_bees,
+         chpost_perc_var = 100*chpost_var_total/chpost_wash_bees
+         )
+
+
+names(an_dat)
+  
+```
+
+
+
+
+
 
 
 # Dataset of colonies that established and didn't have EFB
