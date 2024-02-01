@@ -10,9 +10,16 @@ output:
 # Setup
 
 ```{r}
+library(MASS)
 library(tidyverse)
+library(emmeans)
+library(broom)
+library(multcomp)
 library(lme4)
+library(lubridate)
+library(mgcv)
 ```
+
 
 
 # Read in data
@@ -22,22 +29,11 @@ an_dat <- read.csv("./data_prepared/an_dat.csv")
 ```
 
 # Prepare data for Varroa infestation analysis
+
+Exclude any colonies that had EFB or queen issues or were removed due to weakness
 ```{r}
-class(an_dat$ch2_wash_workers)
-class(an_dat$ch2_wash_drones)
-class(an_dat$ch2_wash_queens)
-
-class(an_dat$ch77_wash_workers) # Because 3 rows say "missing"
-class(an_dat$ch77_wash_drones)
-class(an_dat$ch77_wash_queens)
-
-class(an_dat$chpost_wash_workers) # Issues w colony 22-049
-class(an_dat$chpost_wash_drones)
-class(an_dat$chpost_wash_queens)
-
-
-an_dat %>% 
-  filter(efb == 0) %>% 
+temp <- an_dat %>% 
+  filter(efb == 0, failed + weak + QL + DL == 0) %>% 
   mutate(ch2_wash_bees = ch2_wash_workers + ch2_wash_drones + ch2_wash_queens,
          ch77_wash_bees = ch77_wash_workers + ch77_wash_drones + ch77_wash_queens,
          chpost_wash_bees = chpost_wash_workers + chpost_wash_drones + chpost_wash_queens,
@@ -46,8 +42,217 @@ an_dat %>%
          chpost_perc_var = 100*chpost_var_total/chpost_wash_bees
          )
 
+# 117 of 177 colonies still in trial on d77: 66% of colonies. Not too bad.
 
-names(an_dat)
+names(temp)
+
+unique(temp$trt_label)
+
+temp <- temp %>%
+  mutate(trt_label = fct_relevel(trt_label, "Control", "Apivar", "Amitraz E.C.", "OA Dribble",  "5x OA Dribble","OA Vapor", "HopGuard"))
+
+# calculate the number of days between day 2 sampling and post sampling
+temp <- temp %>% 
+  mutate(
+    num_days = mdy(chpost_date) - mdy(ch2_date),
+    days_numeric = as.numeric(num_days)
+  )
+
+mean(unique(temp$days_numeric)) #102.75 ; round to 100
+
+# pattern <- "date"
+#   grep(pattern, names(temp), value=TRUE)  
+
+```
+
+# Run models for d77 varroa
+
+## I would consider including yard as a random effect since we blocked by yard
+This should increase power to detect treatment effects
+But it gives a singular fit, so I will not use it as a random effect
+
+```{r}
+m1 <- glmer.nb(ch77_var_total~trt_label + ch2_var_total + (1|new_yard), data=temp)
+# singular
+summary(m1)
+help('isSingular')
+```
+
+## Correcting for number of bees in sample by including it as an offset
+
+```{r}
+m2 <- glmer.nb(ch77_var_total ~ 
+                 trt_label + 
+                 ch2_perc_var + 
+                 offset(log(ch77_wash_bees)) +
+                 (1|new_yard), 
+               data=temp)
+# summary(m2)
+# Singular fit, still
+# Omit random effect
+
+
+m3 <- glm.nb(ch77_var_total ~ 
+                 trt_label + 
+                 ch2_perc_var + 
+                 offset(log(ch77_wash_bees)), 
+               data=temp)
+# summary(m3)
+summary(m3)
+
+
+```
+
+
+
+## How did the Varroa infestations vary between treatments on day 77?
+Used to make statistical comparisons between treatment groups
+
+```{r}
+# Make a priori contrasts between pre
+K <- contrMat(table(temp$trt_label), type="Tukey")
+Ksub <- rbind(K[c(3,4,5,6,8,9,10,11,16,17),])
+
+summary(glht(m3, linfct = mcp(trt_label = Ksub)),
+        test = adjusted("single-step")) # Used for p-values for ESA poster
+
+```
+
+# Run models for post-honey Varroa
+The 4 experimental blocks had a staggered start, but ended at the same time (due to the honey harvest )
+To account for the different length of time that each yard was in the experiment, I include the number of days as a predictor, and make predictions normalized to ~103 days of experiment length.
+
+```{r}
+
+ pattern <- "bees"
+   grep(pattern, names(temp), value=TRUE) 
+
+m4 <- glm.nb(chpost_var_total ~ 
+                 trt_label + 
+                 ch2_perc_var + 
+               days_numeric +
+                 offset(log(chpost_wash_bees)), 
+               data=temp)
+
+summary(m4)
+
+
+
+
+
+m5 <- glm.nb(chpost_var_total ~ 
+                 trt_label + 
+                 ch2_perc_var + 
+               # days_numeric +
+                 offset(log(chpost_wash_bees)), 
+               data=temp)
+
+anova(m4, m5)
+# More complex model favored p = 0.003; go with m4
+```
+
+## How did the Varroa infestations vary between treatments on day 103?
+Used to make statistical comparisons between treatment groups
+
+```{r}
+# Make a priori contrasts between pre-selected
+K <- contrMat(table(temp$trt_label), type="Tukey")
+Ksub <- rbind(K[c(3,4,5,6,8,9,10,11,16,17),])
+
+summary(glht(m4, linfct = mcp(trt_label = Ksub)),
+        test = adjusted("single-step"))
+
+```
+
+
+# Summarize efficacy
+- And get confidence intervals around efficacy
+
+## Day 77 Efficacy
+
+```{r}
+
+
+tidy(m3)
+
+eff77 <- tidy(m3)
+
+eff77_CI <- as.data.frame(confint(m3))
+eff77 <- cbind(eff77, eff77_CI)
+eff77 <- eff77 %>% 
+  rename(LCL = "2.5 %", UCL = "97.5 %")
+
+
+eff77 <- eff77 %>% 
+  mutate(times_as = exp(estimate),
+         efficacy77 = 100*(1-times_as),
+         
+         times_as_UCL = exp(UCL),
+         efficacy77_LCL = 100*(1-times_as_UCL),
+         
+         times_as_LCL = exp(LCL),
+         efficacy77_UCL = 100*(1-times_as_LCL)
+         )
+
+eff77 <- eff77[2:7,]
+```
+
+## Day 103 Efficacy
+
+```{r}
+
+effpost <- tidy(m4)
+
+effpost_CI <- as.data.frame(confint(m4))
+effpost <- cbind(effpost, effpost_CI)
+effpost <- effpost %>% 
+  rename(LCL = "2.5 %", UCL = "97.5 %")
+
+
+effpost <- effpost %>% 
+  mutate(times_as = exp(estimate),
+         efficacypost = 100*(1-times_as),
+         
+         times_as_UCL = exp(UCL),
+         efficacypost_LCL = 100*(1-times_as_UCL),
+         
+         times_as_LCL = exp(LCL),
+         efficacypost_UCL = 100*(1-times_as_LCL)
+         )
+
+effpost <- effpost[2:7,]
+
+```
+
+
+## Plot d77 efficacy
+
+```{r}
+eff77 %>% 
+  ggplot(aes(y = efficacy77, x = term), fill = "#031C38", alpha = 0.6) + 
+  geom_bar(stat = "identity", color = "black") +
+  geom_errorbar(aes(ymin=efficacy77_LCL, ymax=efficacy77_UCL), width=0.5) +
+  
+  ylab("Efficacy (%)") +
+  scale_y_continuous(breaks = c(0,20,40,60,80,100)) +
+  theme_classic() + # base_size = 30
+  
+  theme(axis.text.x=element_text(angle=45,hjust=1),  axis.title.x=element_blank())
+  
+```
+## Plot d103 efficacy
+
+```{r}
+effpost %>% 
+  ggplot(aes(y = efficacypost, x = term), fill = "#031C38", alpha = 0.6) + 
+  geom_bar(stat = "identity", color = "black") +
+  geom_errorbar(aes(ymin=efficacypost_LCL, ymax=efficacypost_UCL), width=0.5) +
+  
+  ylab("Efficacy (%)") +
+  # scale_y_continuous(breaks = c(0,20,40,60,80,100)) +
+  theme_classic() + # base_size = 30
+  
+  theme(axis.text.x=element_text(angle=45,hjust=1),  axis.title.x=element_blank())
   
 ```
 
@@ -55,38 +260,84 @@ names(an_dat)
 
 
 
-
-
-# Dataset of colonies that established and didn't have EFB
+Get predictions for day 77
 ```{r}
-# Filter out the colonies that had disqualifying issues
-# Include the 5 colonies that were pulled out for being weak
- <- an_dat %>% 
-  filter(efb + failed + QL + DL == 0)
+pred_77 <- emmip(m3, ~ trt_label, type = "response", CIs = TRUE, plotit = FALSE, offset = log(100))
+# this is based on the non-included variable (Varroa infestation on day 2) being set to its mean... 
+# Predictions are now set to the value of offset = 100... (mites per 100 bees)
 
-an_dat$frames_bees[an_dat$weak == 1] <- 0
+pred_77$day <- 77
 
-an_dat$trt
+# Check this against the actual means per group
+temp %>% 
+  group_by(trt_label) %>% 
+  summarise(varroa = mean(ch77_perc_var))
+# Matches closely
+
+
+
+```
+
+Get predictions for day 103
+
+```{r}
+pred_post <- emmip(m4, ~ trt_label, type = "response", CIs = TRUE, plotit = FALSE, offset = log(100))
+
+pred_post$day <- 103
+
+```
+
+
+```{r}
+# Combine day 2, 77, 103 into one plottable data frame
+
+mean(temp$ch2_perc_var) # 1.42 Varroa per 100 bees
+
+pred_pre <- data.frame(pred_77$trt_label, yvar = c(rep(1.42, 7)), day = c(rep(2, 7)))
+pred_pre <- pred_pre %>% 
+  rename(trt_label = pred_77.trt_label)
+
+  
+  
+# eff <- data.frame(eff77$term, eff77$efficacy77, effpost$efficacypost[1:8])
+  
+  
+
+pred <- bind_rows(pred_pre, pred_77, pred_post)
+```
+
+
+# Graph Varroa infestation predictions
+
+```{r}
+pred %>% 
+  ggplot(mapping = aes(y = yvar, x = day, colour = trt_label)) +
+  geom_hline(yintercept = 3, linetype = 2, colour = "red") +
+  geom_line(size = 1.5) +
+  geom_point(size = 3) +
+
+  scale_colour_manual(
+  limits = c("Control", "OA Vapor", "HopGuard", "OA Dribble", "Apivar", "5x OA Dribble", "Amitraz E.C."),
+  labels = c("Control", "OA Vapor", "HopGuard", "OA Dribble", "Apivar", "5x OA Dribble", "Amitraz E.C."),
+  values = c("#F8766D", "#C49A00", "#53B400", "#00C094", "#00B6EB", "#A58AFF", "#FB61D7"), 
+  aesthetics = "color") +
+  
+  scale_x_continuous(breaks = c(2, 77, 103)) +
+  # ylim(0,8) +
+  
+  ylab("Varroa / 100 bees") +
+  xlab("Experiment day")
+  
+  # theme_classic(base_size = 30)
 ```
 
 
 
-## Analyze day 77 Colony strength
 
-```{r}
-m.bees <- lm(frames_bees~trt, data = an_dat) # Next run should include a yard level random effect
-summary(m.bees)
-summary(aov(m.bees))
-anova(m.bees) # No effect of treatment (p=0.9999)
-plot(m.bees)
-```
 
-## Analyze data for colony weight post honey production
 
-```{r}
-m.weight <- lm(post_lbs_C~trt, data = an_dat)
-summary(m.weight)
-```
+
+
 
 
 

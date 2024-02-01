@@ -1,0 +1,51 @@
+---
+title: "2_2X Analysis Varroa Exploratory"
+author: "Dan Aurell"
+date: "2024-02-01"
+output:   
+  html_document: 
+    keep_md: yes
+---
+
+
+# Determine how length of brood break might influence efficacy *within treatment*...
+
+The difficulty is that we can't calculate efficacy on an every-hive basis since it will divide by zero for some hives.
+
+So then we use an alternate method
+
+d77 Varroa ~ d2 Varroa + brood_break_length
+
+I would want to analyze d2 Varroa as a predictor in a standard way, but to analyze the predictor brood break length in a more flexible way since I do not assume a linear relationship.
+
+I like how ggplot can do a loess regression, but how to do apply the nonlinear regression only to one variable?
+
+Generalized additive models?
+
+
+Prepare data for GAM
+```{r}
+temp <- temp %>% 
+  mutate(age_start_lay = start_layday - 2,
+          emerge_day = 21,
+         receptive_day = start_layday + 8,
+         days_break = receptive_day - emerge_day,
+         completeYN = ifelse(days_break > 0, "Complete", "Not Complete"),
+         completeYN = fct_relevel(completeYN, "Not Complete", "Complete")
+         )
+```
+
+
+```{r}
+ pattern <- "var"
+   grep(pattern, names(temp), value=TRUE)  
+
+m6 <- gam(ch77_var_total ~ s(days_break) + ch2_var_total, data = temp, subset = trt)
+m7 <- gam(ch77_var_total ~ s(days_break) + ch2_var_total, data = temp)
+
+m8 <- gam(ch77_var_total ~ s(days_break, by = trt_label) + ch2_var_total, data = temp)
+
+summary(m8)
+```
+
+
