@@ -7,16 +7,22 @@ output:
     keep_md: yes
 ---
 
+```{r}
+library(tidyverse)
+library(lme4)
+```
+
+
 # Read in data
 
 ```{r}
-an_dat <- read.csv("./data_prepared/an_dat.csv")
+temp <- read.csv("./data_prepared/an_dat.csv")
 ```
 
 # Prep data for analysis
 
 ```{r}
-temp <- an_dat %>% 
+temp <- temp %>% 
   rename(
     fob_44 = ch44_fob,
     fob_58 = ch58_fob,
@@ -33,9 +39,9 @@ temp <- an_dat %>%
 m.bees <- lm(frames_bees~trt_label, data = temp) # Next run should include a yard level random effect
 m.bees.2 <- lmer(frames_bees~trt_label + (1 | new_yard), data = temp)
 m.bees.3 <- lmer(frames_bees~ 1 + (1 | new_yard), data = temp)
-anova(m.bees.2, m.bees.3) # No improvement to include a treatment effect (p=0.95)
+anova(m.bees.2, m.bees.3) # No improvement to include a treatment effect (p=1)
 
-# Still make predictions based on m2, but no statistical detected effect of treatment (p=0.95)
+# Still make predictions based on m2, but no statistical detected effect of treatment (p=1)
 ```
 
 ## Analyze data for colony weight post honey production
@@ -44,7 +50,8 @@ anova(m.bees.2, m.bees.3) # No improvement to include a treatment effect (p=0.95
 m.weight <- lm(post_lbs_C~trt_label, data = temp)
 m.weight.2 <- lmer(post_lbs_C ~ trt_label + (1 | new_yard), data = temp)
 m.weight.3 <- lmer(post_lbs_C ~ 1 + (1 | new_yard), data = temp)
-anova(m.weight.2, m.weight.3) # No effect of treatment (p=0.82)
+anova(m.weight.2, m.weight.3) # No effect of treatment (p=0.77)
 
+# Still graph predictions based on m2 to estimate effect size
 ```
 
