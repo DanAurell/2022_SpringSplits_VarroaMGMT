@@ -78,27 +78,46 @@ summary(m1)
 help('isSingular')
 ```
 
+
+
+
+
+
 ## Correcting for number of bees in sample by including it as an offset
 
 ```{r}
 m2 <- glmer.nb(ch77_var_total ~ 
                  trt_label + 
-                 ch2_perc_var + 
+                 ch2_perc_var +  # 1 = 1 mite per 100 bees
                  offset(log(ch77_wash_bees)) +
                  (1|new_yard), 
                data=temp)
-# summary(m2)
+summary(m2)
 # Singular fit, still
-# Omit random effect
 
+# Dr. Steury comment: Could try it with a BOBYQA optimizer...
+# ... see if get same estimates of effect
+# If same estimates of effect, can use this one, even if it has a singular fit
 
+# Omitting random effect
 m3 <- glm.nb(ch77_var_total ~ 
                  trt_label + 
-                 ch2_perc_var + 
+                 ch2_perc_var +
                  offset(log(ch77_wash_bees)), 
                data=temp)
 # summary(m3)
 summary(m3)
+
+m0 <- glm.nb(ch77_var_total ~ 
+                 # trt_label + 
+                 ch2_perc_var + 
+                 offset(log(ch77_wash_bees)), 
+               data=temp)
+summary(m0)
+
+anova(m3, m0) # Significant effect of trt
+
+summary(m3) # Very similar estimates of effect
 
 
 ```
@@ -109,12 +128,17 @@ summary(m3)
 Used to make statistical comparisons between treatment groups
 
 ```{r}
-# Make a priori contrasts between pre
+# Make a priori contrasts between treatments
 K <- contrMat(table(temp$trt_label), type="Tukey")
 Ksub <- rbind(K[c(3,4,5,6,8,9,10,11,16,17),])
 
 summary(glht(m3, linfct = mcp(trt_label = Ksub)),
         test = adjusted("single-step")) # Used for p-values for ESA poster
+
+# Approach varies journal to journal
+# One thing I might do is just run all post-hoc comparisons
+  # If qualitatively the same results as my initial approach I could just use those
+  # If I do it this way, I will need to justify why I'm selecting some comparisons in particular...
 
 ```
 
@@ -147,6 +171,8 @@ m5 <- glm.nb(chpost_var_total ~
                  offset(log(chpost_wash_bees)), 
                data=temp)
 
+summary(m5)
+
 anova(m4, m5)
 # More complex model favored p = 0.003; go with m4
 ```
@@ -155,7 +181,7 @@ anova(m4, m5)
 Used to make statistical comparisons between treatment groups
 
 ```{r}
-# Make a priori contrasts between pre-selected
+# Make a priori contrasts between treatments
 K <- contrMat(table(temp$trt_label), type="Tukey")
 Ksub <- rbind(K[c(3,4,5,6,8,9,10,11,16,17),])
 
@@ -165,7 +191,7 @@ summary(glht(m4, linfct = mcp(trt_label = Ksub)),
 ```
 
 
-# Summarize efficacy
+# Summarize results as efficacy
 - And get confidence intervals around efficacy
 
 ## Day 77 Efficacy
@@ -181,6 +207,7 @@ eff77_CI <- as.data.frame(confint(m3))
 eff77 <- cbind(eff77, eff77_CI)
 eff77 <- eff77 %>% 
   rename(LCL = "2.5 %", UCL = "97.5 %")
+
 
 
 eff77 <- eff77 %>% 
