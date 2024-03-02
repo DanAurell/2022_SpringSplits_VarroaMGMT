@@ -320,13 +320,13 @@ mean(wash77_vec, na.rm = TRUE) # 3.59
 
 # To impute
 
-issues <- c("22-078", "22-108", "22-124")
+missed <- c("22-078", "22-108", "22-124")
 
 pa <- pa %>% 
   mutate(
-    ch77_wash_workers = ifelse(colony_num %in% issues, 359, ch77_wash_workers),
-    ch77_wash_drones = ifelse(colony_num %in% issues, 4, ch77_wash_drones),
-    ch77_wash_queens = ifelse(colony_num %in% issues, 0, ch77_wash_queens),
+    ch77_wash_workers = ifelse(colony_num %in% missed, 359, ch77_wash_workers),
+    ch77_wash_drones = ifelse(colony_num %in% missed, 4, ch77_wash_drones),
+    ch77_wash_queens = ifelse(colony_num %in% missed, 0, ch77_wash_queens),
     )
 
 ```
@@ -360,13 +360,6 @@ pa$failed <- ifelse(grepl("Failed", pa$reason_removal), 1, 0)
 pa$weak <- ifelse(grepl("Weak|Small", pa$reason_removal), 1, 0)
 pa$QL <- ifelse(grepl("QL|VS|VQS|VQ", pa$qstatuses), 1, 0)
 pa$DL <- ifelse(grepl("DL", pa$qstatuses), 1, 0)
-
-pa <- pa %>% 
-  mutate(died = ifelse(failed + weak + QL + DL > 0, 1, 0),
-         survived = ifelse(failed + weak + QL + DL == 0, 1, 0)
-         )
-
-
 ```
 
 ## Add resources data to pa data
@@ -379,7 +372,8 @@ Correct the hive weight based on the number of supers and 12 lbs per super
 
 ```{r}
 pa <- pa %>% 
-  mutate(post_lbs_C = post_lbs - 12*(post_supers_use-1))
+  mutate(post_lbs_C = post_lbs - 12*(post_supers_use-1),
+         post_kgs_C = 0.454*post_lbs_C)
 ```
 
 
