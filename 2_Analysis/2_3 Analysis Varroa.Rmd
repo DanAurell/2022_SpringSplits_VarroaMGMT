@@ -25,7 +25,9 @@ library(mgcv)
 # Read in data
 
 ```{r}
-an_dat <- read.csv("./data_prepared/an_dat.csv")
+an_dat <- read.csv("./data_prepared/an_dat_q.csv")
+
+names(an_dat)
 ```
 
 # Prepare data for Varroa infestation analysis
@@ -33,7 +35,7 @@ an_dat <- read.csv("./data_prepared/an_dat.csv")
 Exclude any colonies that had EFB or queen issues or were removed due to weakness
 ```{r}
 temp <- an_dat %>% 
-  filter(efb == 0, failed + weak + QL + DL == 0) %>% 
+  filter(issues == 0) %>% 
   mutate(ch2_wash_bees = ch2_wash_workers + ch2_wash_drones + ch2_wash_queens,
          ch77_wash_bees = ch77_wash_workers + ch77_wash_drones + ch77_wash_queens,
          chpost_wash_bees = chpost_wash_workers + chpost_wash_drones + chpost_wash_queens,
@@ -63,19 +65,130 @@ mean(unique(temp$days_numeric)) #102.75 ; round to 100
 # pattern <- "date"
 #   grep(pattern, names(temp), value=TRUE)  
 
+
 ```
+
+# Assess were there pre-treatment and post-treatment differences in Varroa load?
+
+## Describe levels on day 2 and 77
+```{r}
+temp %>% 
+  summarise(mean = mean(ch2_perc_var))
+
+temp %>% 
+  summarise(mean = mean(ch77_perc_var))
+
+temp %>% 
+  summarise(mean = mean(chpost_perc_var))
+
+temp %>%
+  filter(trt_label == "Control")
+    summarise(mean = mean(ch2_perc_var))
+
+temp %>% 
+  summarise(mean = mean(ch77_perc_var))
+
+temp %>% 
+  summarise(mean = mean(chpost_perc_var))
+
+```
+
+
+
+## Graph differences
+
+```{r}
+an_dat %>% 
+  ggplot(aes(x=trt_label, y = ch2_var_total)) +
+  geom_boxplot()
+# Doesn't look like it at first glance when all data are included
+
+an_dat %>% 
+  filter(issues == 0) %>% 
+  ggplot(aes(x=trt_label, y = ch2_var_total)) +
+  geom_boxplot()
+# But maybe HopGuard is high when we exclude colonies with issues
+
+
+
+an_dat %>% 
+  ggplot(aes(x=trt_label, y = ch77_var_total)) +
+  geom_boxplot()
+
+an_dat %>% 
+  filter(issues == 0) %>% 
+  ggplot(aes(x=trt_label, y = ch77_var_total)) +
+  geom_boxplot()
+
+# The stories are really similar whether you include the colonies with "issues" or not, but this just makes sense since the ones with issues had already been removed before day 77
+
+
+```
+
+
+
+
+```{r}
+## Including all colonies
+
+m.day2 <- glm.nb(ch2_var_total~trt_label, data = an_dat)
+summary(m.day2)
+
+m.day2.0 <- glm.nb(ch2_var_total~1, data = an_dat)
+summary(m.day2.0)
+
+anova(m.day2, m.day2.0) # Pre-treatment differences were not significant (P=0.84)
+
+
+## Including only non-issues colonies
+
+m.day2 <- glm.nb(ch2_var_total~trt_label, data = temp)
+summary(m.day2)
+
+m.day2.0 <- glm.nb(ch2_var_total~1, data = temp)
+summary(m.day2.0)
+
+anova(m.day2, m.day2.0) # Pre-treatment differences were not significant (P=0.67)
+```
+# Post-treatment differences
+
+```{r}
+an_dat %>% 
+  ggplot(aes(x=trt_label, y = ch77_var_total)) +
+  geom_boxplot()
+# Looks like t
+
+m.day2 <- glm.nb(ch2_var_total~trt_label, data = an_dat)
+summary(m.day2)
+
+m.day2.0 <- glm.nb(ch2_var_total~1, data = an_dat)
+summary(m.day2.0)
+
+anova(m.day2, m.day2.0) # Pre-treatment differences were not significant (P=0.84)
+```
+
+
 
 # Run models for d77 varroa
 
 ## I would consider including yard as a random effect since we blocked by yard
 This should increase power to detect treatment effects
 But it gives a singular fit, so I will not use it as a random effect
+- But I think Steury was mentioning just make the model more patient with BOBYA
 
 ```{r}
 m1 <- glmer.nb(ch77_var_total~trt_label + ch2_var_total + (1|new_yard), data=temp)
 # singular
 summary(m1)
 help('isSingular')
+
+
+m1.1 <- glm.nb(ch77_var_total~trt_label + ch2_var_total, data=temp)
+# singular
+summary(m1.1)
+
+# SUUUPER SIMILAR RESULTS of coefficients with and without random effect
+
 ```
 
 

@@ -17,12 +17,90 @@ an_dat <- read.csv("./data_prepared/an_dat.csv")
 
 
 # Descriptive stats - including some plotting
-Which colony issues were present in how many numbers per group
+
+## Overall establishment rate and total colonies removed due to each issue
+```{r}
+sum(an_dat$failed) #23
+sum(an_dat$established) #154
+
+# 154/177 = 87.0 %
+
+sum(an_dat$QL) # 9
+sum(an_dat$DL) # 4
+sum(an_dat$efb) # 19
+sum(an_dat$weak) # 5
+
+# 23+9+4+19+5 = 60
+
+sum(an_dat$issues) # 60
+
+# Most constrained dataset includes 117 colonies of the initial 177
+
+
+```
+## Establishment rate by treatment
+```{r}
+established_summary <- an_dat %>% 
+  group_by(trt_label) %>% 
+  summarize(n = n(),
+            established_num = sum(established),
+            established.p = established_num/n
+          )
+
+established_summary <- established_summary %>% 
+  mutate(failed.p = 1-established.p)
+  
+```
+
+### Plot establishment rate by treatment
+```{r}
+
+established_summary_pivoted <- established_summary %>% 
+  pivot_longer(c(established.p, failed.p), names_to = "outcome", values_to = "proportion") 
+
+established_summary_pivoted <- established_summary_pivoted %>% 
+  mutate(
+    outcome_label = if_else(outcome == "established.p", "Established",
+      if_else(outcome == "failed.p", "Did not establish", NA))
+  )
+
+# Relevel factors for plotting
+established_summary_pivoted <- established_summary_pivoted %>%
+     mutate(trt_label = fct_relevel(trt_label, "Control", "Apivar", "Amitraz E.C.", "OA Dribble", "5x OA Dribble", "OA Vapor", "HopGuard")
+                        )
+
+established_summary_pivoted <- established_summary_pivoted %>%
+     mutate(outcome_label = fct_relevel(outcome_label, "Did not establish", "Established")
+            )
+
+
+# Plot establish vs. not
+established_summary_pivoted %>% 
+  ggplot(aes(x = trt_label, y = proportion, fill = outcome_label)) +
+  geom_col(position = "stack", color = "black") +
+  scale_colour_manual(
+  limits = c("Did not establish", "Established"),
+  labels = c("Did not establish", "Established"),
+  values = c("white", "black"), 
+  aesthetics = "fill"
+) +
+  scale_y_continuous(limits = c(0,1)) + 
+  ylab("Proportion of colonies") +
+  theme_classic(base_size = 30) + 
+  theme(axis.text.x=element_text(angle=45,hjust=1), axis.title.x=element_blank(), legend.title = element_blank())
+  
+ggsave("./outputs/established_p_2024-03-02 v2.png", width = 12, height = 8.625, units = "in")
+```
+
+
+
+
+## Colony issues
 
 ```{r}
 # Issues
 
-loss_summary <- an_dat %>% 
+issues_summary <- an_dat %>% 
   group_by(trt_label) %>% 
   summarize(n = n(),
             
@@ -43,23 +121,28 @@ loss_summary <- an_dat %>%
             
           )
 
-```
 
-Did any colonies have more than one issue?
-```{r}
-an_dat <- an_dat %>% 
-  mutate(issues = efb+weak+failed+QL+DL)
+
 ```
 
 
-
-Prep failure type table for graphing
 ```{r}
-loss_summary_pivoted <- loss_summary %>% 
+sum(an_dat$issues) #60 colonies had any issue
+# i.e. 117 had no issue
+# 117/177 i.e., 66.1 % of colonies had no issue
+
+# Check if this lines up with the number of colonies for which I have Varroa data on day 77. It does. 
+
+```
+
+### Prep data for colony issues graphing
+
+```{r}
+issues_summary_pivoted <- issues_summary %>% 
   pivot_longer(c(efb.p, weak.p, failed.p, QL.p, DL.p), names_to = "reason", values_to = "proportion") 
 
 
-loss_summary_pivoted <- loss_summary_pivoted %>% 
+issues_summary_pivoted <- issues_summary_pivoted %>% 
   mutate(
     reason_label = if_else(reason == "efb.p", "EFB",
       if_else(reason == "weak.p", "Weak",
@@ -73,14 +156,15 @@ loss_summary_pivoted <- loss_summary_pivoted %>%
 
 # Relevel factors for plotting
 
-loss_summary_pivoted <- loss_summary_pivoted %>%
+issues_summary_pivoted <- issues_summary_pivoted %>%
      mutate(trt_label = fct_relevel(trt_label, "Control", "Apivar", "Amitraz E.C.", "OA Dribble", "5x OA Dribble", "OA Vapor", "HopGuard"),
             reason_label = fct_relevel(reason_label,
     "Weak",
+    "EFB",
     "Queenless",
     "Drone layer", 
-    "Did not establish", 
-    "EFB" )
+    "Did not establish"
+    )
             )
 
 
@@ -89,41 +173,12 @@ loss_summary_pivoted <- loss_summary_pivoted %>%
 
 ```
 
-
-## To be able to pull out colonies that had certain issues, should I make vectors of colonies with those issues?
-
-- No, I can filter based on the EFB column to make an analytical dataset
+### Plotting colony issues
 
 ```{r}
-# Which colonies did I identify as having each issue - make vectors
+# Graph with queen issues, "weak" and "EFB"
 
-# EFB
-
-# Weak
-weak_colonies <- an_dat %>% 
-  filter(weak == 1)
-
-
-weak_colonies$split_ids # "22-003" "22-050" "22-058" "22-142" "22-155"
-
-# "22-003" - missing
-# "22-050" - missing
-# "22-058" - missing
-# "22-142" - exists but is quite low 
-# "22-155" - missing
-
-```
-
-
-
-
-
-# Plotting survival and issues
-
-```{r}
-# With "weak"
-
-loss_summary_pivoted %>% 
+issues_summary_pivoted %>% 
   ggplot(aes(x = trt_label, y = proportion, fill = reason_label)) +
   geom_col(position = "stack") +
   scale_fill_viridis_d(direction = -1) +
@@ -132,13 +187,13 @@ loss_summary_pivoted %>%
   theme_classic(base_size = 30) + 
   theme(axis.text.x=element_text(angle=45,hjust=1), axis.title.x=element_blank(), legend.title = element_blank())
   
-ggsave("./CoD 2024-03-01 v4.png", width = 12, height = 8.625, units = "in")
+ggsave("./outputs/CoD 2024-03-02 v4.png", width = 12, height = 8.625, units = "in")
 
 
-# Without "weak"
+# Graoh Only efb, weakness
 
-loss_summary_pivoted %>% 
-  filter(reason != "weak.p") %>% 
+issues_summary_pivoted %>% 
+  filter(reason %in% c("weak.p", "efb.p")) %>% 
   ggplot(aes(x = trt_label, y = proportion, fill = reason_label)) +
   geom_col(position = "stack") +
   scale_fill_viridis_d(direction = -1) +
@@ -147,26 +202,142 @@ loss_summary_pivoted %>%
   theme_classic(base_size = 30) + 
   theme(axis.text.x=element_text(angle=45,hjust=1), axis.title.x=element_blank(), legend.title = element_blank())
   
-# ggsave("./outputs/2023-11-04 CoD v5.png", width = 12, height = 8.625, units = "in")
+ggsave("./outputs/CoD 2024-03-02 v5.png", width = 12, height = 8.625, units = "in")
 
+# Only queen issues
 
-```
-
-
-Only "weak" colonies
-
-```{r}
-
-loss_summary %>% 
-  ggplot(aes(x = trt_label, y = weak_num)) +
-  geom_col() +
-  ylab(NULL) +
-  scale_y_continuous(breaks = c(0,1,2)) +
+issues_summary_pivoted %>% 
+  filter(reason %in% c("failed.p", "QL.p", "DL.p")) %>% 
+  ggplot(aes(x = trt_label, y = proportion, fill = reason_label)) +
+  geom_col(position = "stack") +
+  scale_fill_viridis_d(direction = -1) +
+  scale_y_continuous(limits = c(0,1)) + 
+  ylab("Proportion of colonies") +
   theme_classic(base_size = 30) + 
   theme(axis.text.x=element_text(angle=45,hjust=1), axis.title.x=element_blank(), legend.title = element_blank())
+  
+ggsave("./outputs/CoD 2024-03-02 v6.png", width = 12, height = 8.625, units = "in")
 
-# ggsave("./outputs/2023-11-05 Count of weak v1.png", width = 12, height = 4, units = "in")
 ```
+
+
+# Deeper queens analysis - date they started laying
+
+There's no need to statistically analyze this. There's no biological basis to hypothesize that treatments would increase the establishment success of queens.
+
+There is biological basis to hypothesize that treatments might harm queens, thus decreasing establishment success.
+
+No treatment had lower success than Control, so we just state that there was no indication that any treatment lowered establishment success.
+
+
+# Determine length of brood break for each colony
+
+```{r}
+# It's only sensible to look at the length of brood break for colonies which DID successfully establish. Thus filter to success = "Y"
+
+# A worker brood cell becomes receptive to Varroa on day 8, and emerges on day 21
+
+an_dat <- an_dat %>% 
+  # filter(established == 1) %>% 
+  # select(colony_num, trt_label, start_layday) %>% 
+  mutate(age_start_lay = start_layday - 2,
+          emerge_day = 21, # Age when worker brood starts emerging
+         receptive_day = start_layday + 8,
+         days_break = receptive_day - emerge_day,
+         completeYN = ifelse(days_break > 0, "Complete", "Not Complete"),
+         completeYN = fct_relevel(completeYN, "Not Complete", "Complete")
+         )
+
+# Relevel factors for plotting
+an_dat <- an_dat %>%
+     mutate(trt_label = fct_relevel(trt_label, "Control", "Apivar", "Amitraz E.C.", "OA Dribble", "5x OA Dribble", "OA Vapor", "HopGuard")
+                        )
+
+
+# Describe overall results - for colonies whose queens established
+
+table(an_dat$completeYN[an_dat$established==1])
+# Of 154 colonies whose queens successfully established, 101 experienced a complete brood break (65.6%), whereas 53 did not experience a complete brood break
+
+ 
+an_dat %>% 
+  filter(established == 1) %>% 
+  summarise(
+    mean = mean(days_break, na.rm = T),
+    min = min(days_break, na.rm = T),
+    max = max(days_break, na.rm = T)
+  )
+
+
+# Considering worker brood only, the overall mean length of brood break was 3.5 days, with some colonies experiencing an overlap of as much as 4 days of old queen's brood and new queen, and some colonies experiencing as much as 15 days of absence of receptive brood.
+
+
+```
+
+
+```{r}
+# Some basic plots to visualize data
+an_dat %>% 
+  ggplot(aes(x=days_break)) +
+  geom_histogram(binwidth = 1)
+
+an_dat %>% 
+  ggplot(aes(x=days_break)) +
+  geom_density()
+
+an_dat %>%
+  ggplot(aes(y=trt_label, x=days_break)) +
+  geom_violin()
+
+
+# Working on a final figure
+
+## Graph option 1 - preferred
+an_dat %>%
+  ggplot(aes(x=trt_label, y=days_break)) + # Length of brood break
+  geom_boxplot(outlier.shape = NA) +
+  geom_hline(yintercept = 0, color = "red", linetype = "dashed", alpha = 0.5) +
+  geom_jitter(alpha=0.2, width = 0.2, height = 0.1) +
+  stat_summary(fun.y=mean, geom="point", shape=20, size=5, alpha = 0.5, color = "red") +
+  scale_x_discrete(limits = rev) +
+  ylab("Length of brood break (days)") +
+  theme_classic(base_size = 18) +
+  theme(axis.title.y=element_blank()) +
+  coord_flip()
+
+
+ggsave("./outputs/length_break_2024-03-03 v1.png", width = 12, height = 8.625, units = "in")
+```
+
+```{r}
+## Graph option 2 - not preferred
+an_dat %>%
+  ggplot(aes(x=trt_label, y=days_break)) + # Length of brood break
+  geom_boxplot(outlier.shape = NA) +
+  geom_jitter(aes(color = completeYN), alpha=0.4, width = 0.2, height = 0.1) +
+  stat_summary(fun.y=mean, geom="point", shape=20, size=5, alpha = 0.5) +
+  scale_x_discrete(limits = rev) +
+  ylab("Length of brood break (days)") +
+  theme_classic(base_size = 18) +
+  theme(axis.title.y=element_blank(), legend.position = "none") +
+  coord_flip()
+```
+
+To potentially look at:
+1. Statistically analyze do any treatments cause delay in queen establishment?
+  - Note that brood break length has what may be a bimodal distribution - which would make sense if some of the late colonies' queens derive from an emergency cell, not the one we placed. Will cause difficulties to use brood break length or establishment time as a response variable.
+1a) Are some queens our cell queens and others are emergency queens?  
+  - One way to pose question: What proportion of queens in each treatment established before 18 days post-placement?
+2. Use brood break length as a predictor of efficacy against Varroa
+
+
+# Finish by writing analytical dataset back to data_prepared folder... so that queen data is now included
+
+
+```{r}
+write.csv(an_dat, "./data_prepared/an_dat_q.csv")
+```
+
 
 
 

@@ -7,6 +7,10 @@ output:
     keep_md: yes
 ---
 
+# THE USEFUL PARTS OF THIS ANALYSIS HAVE ALREADY BEEN MIGRATED TO:
+1.1 Data Preparation
+2.1 Descriptive Stats
+
 # Setup
 
 ```{r}
@@ -141,84 +145,6 @@ success_tab %>%
   arrange(trt_label)
 
 ```
-
-There's no need to statistically analyze this. There's no biological basis to hypothesize that treatments would increase the establishment success of queens.
-
-There is biological basis to hypothesize that treatments might harm queens, thus decreasing establishment success.
-
-No treatment had lower success than Control, so we just state that there was no indication that any treatment lowered establishment success.
-
-
-# Determine length of brood break for each colony
-
-```{r}
-# It's only sensible to look at the length of brood break for colonies which DID successfully establish. Thus filter to success = "Y"
-
-# A worker brood cell becomes receptive to Varroa on day 8, and emerges on day 21
-
-break_dat <- establish_dat %>% 
-  filter(success == "Y") %>% 
-  select(colony_num, trt_label, start_layday) %>% 
-  mutate(age_start_lay = start_layday - 2,
-          emerge_day = 21,
-         receptive_day = start_layday + 8,
-         days_break = receptive_day - emerge_day,
-         completeYN = ifelse(days_break > 0, "Complete", "Not Complete"),
-         completeYN = fct_relevel(completeYN, "Not Complete", "Complete")
-         )
-
-# Some basic plots to visualize data
-break_dat %>% 
-  ggplot(aes(x=days_break)) +
-  geom_histogram(binwidth = 1)
-
-break_dat %>% 
-  ggplot(aes(x=days_break)) +
-  geom_density()
-
-break_dat %>%
-  ggplot(aes(y=trt_label, x=days_break)) +
-  geom_violin()
-
-
-# Working on a final figure
-
-## Graph option 1 - preferred
-break_dat %>%
-  ggplot(aes(x=trt_label, y=days_break)) + # Length of brood break
-  geom_boxplot(outlier.shape = NA) +
-  geom_hline(yintercept = 0, color = "red", linetype = "dashed", alpha = 0.5) +
-  geom_jitter(alpha=0.2, width = 0.2, height = 0.1) +
-  stat_summary(fun.y=mean, geom="point", shape=20, size=5, alpha = 0.5, color = "red") +
-  scale_x_discrete(limits = rev) +
-  ylab("Length of brood break (days)") +
-  theme_classic(base_size = 18) +
-  theme(axis.title.y=element_blank()) +
-  coord_flip()
-```
-
-```{r}
-## Graph option 2 - not preferred
-break_dat %>%
-  ggplot(aes(x=trt_label, y=days_break)) + # Length of brood break
-  geom_boxplot(outlier.shape = NA) +
-  geom_jitter(aes(color = completeYN), alpha=0.4, width = 0.2, height = 0.1) +
-  stat_summary(fun.y=mean, geom="point", shape=20, size=5, alpha = 0.5) +
-  scale_x_discrete(limits = rev) +
-  ylab("Length of brood break (days)") +
-  theme_classic(base_size = 18) +
-  theme(axis.title.y=element_blank(), legend.position = "none") +
-  coord_flip()
-```
-
-To potentially look at:
-1. Statistically analyze do any treatments cause delay in queen establishment?
-  - Note that brood break length has what may be a bimodal distribution - which would make sense if some of the late colonies' queens derive from an emergency cell, not the one we placed. Will cause difficulties to use brood break length or establishment time as a response variable.
-1a) Are some queens our cell queens and others are emergency queens?  
-  - One way to pose question: What proportion of queens in each treatment established before 18 days post-placement?
-2. Use brood break length as a predictor of efficacy against Varroa
-
-
 
 
 

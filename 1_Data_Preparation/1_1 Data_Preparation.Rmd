@@ -360,7 +360,82 @@ pa$failed <- ifelse(grepl("Failed", pa$reason_removal), 1, 0)
 pa$weak <- ifelse(grepl("Weak|Small", pa$reason_removal), 1, 0)
 pa$QL <- ifelse(grepl("QL|VS|VQS|VQ", pa$qstatuses), 1, 0)
 pa$DL <- ifelse(grepl("DL", pa$qstatuses), 1, 0)
+
+# This initial categorization is not entirely correct, since some queens that were laying eggs on day 30 were not actually laying worker eggs on that day. Instead of DL they should be tagged "failed" 
+
 ```
+
+
+# Refine categorization of queen data - Queen establishment success Y/N
+
+Criterion: did they begin laying worker eggs by Day 30?
+- If not by that time we culled them
+
+Data to use: all
+- For other variables that relate to colony development over time, we exclude colonies that ever developed EFB
+- Since this is a short-term measure, we can include these EFB colonies
+- First time EFB was observed was d44
+- What time frame to look at...
+
+Dates to look at
+- Day 30 data is the most key... 
+- Simplistically we could just look and see were they QR on day 30 or not?
+- But a few colonies had young brood on day 30, so we can't necessarily tell yet if they are drone layers - so let's also look at day 44 data
+- It is only ambiguous if the brood age was L3 or lower on day 30
+  - L3 on day 30 corresponds to anything with a layday of 24 or higher
+
+
+```{r results = "hide"}
+# Exploring how to assess 
+
+pa %>% 
+  filter(start_layday <= 23)
+  # Of the 138 colonies that had a layday of 23 or lower, all were QR/QS on d30 and none were DL on d44
+
+# All colonies whose queens started laying on day 23 or before, did successfully lay worker eggs
+
+
+pa %>% 
+  filter(start_layday >= 24) 
+  # Of the 27 colonies that had a layday of 24 or higher...
+pa %>% 
+  filter(start_layday >= 24) %>% 
+  filter(ch44_qstatus == "DL")
+  # ...8 were DL on d44
+```
+
+Refined criterion for "successfully established":
+- Laying worker brood on day 30 (only able to asses for layday <=23)
+- If start_layday >=24, then consider established if QR/QS at ch44_qstatus
+
+```{r}
+# Success column means "did they ever lay worker eggs"
+pa$established <- "NA"
+
+# Nested ifelse to implement criterion
+pa <- pa %>% 
+  mutate(
+    established = ifelse(ch30_qstatus %in% c("QR", "QS") & start_layday <= 23, 1, 
+                     ifelse(start_layday >= 24 & ch44_qstatus %in% c("QR", "QS"), 1, 0))
+  )
+
+# Correct the failed column
+pa$failed <- ifelse(pa$established == 0, 1, 0)
+
+# When we a queen never laid worker eggs, this "failed" needs to override the other issues (overrides 8 DL and one QL)
+pa$QL <- ifelse(pa$failed == 1, 0, pa$QL)
+pa$DL <- ifelse(pa$failed == 1, 0, pa$DL)
+
+pa <- pa %>% 
+  mutate(issues = failed + QL + DL + efb + weak)
+
+# 60 colonies had any issue
+
+# I have also confirmed that each colony only has one issue.
+
+
+```
+
 
 ## Add resources data to pa data
 ```{r}
