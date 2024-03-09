@@ -6,3 +6,7 @@
 *.DS_Store
 *.tiff
 *.png
+
+
+# ignore all files in any directory named outputs
+outputs/
