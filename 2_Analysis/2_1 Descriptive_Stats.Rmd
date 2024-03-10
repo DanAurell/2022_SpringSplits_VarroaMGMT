@@ -8,7 +8,10 @@ output:
 ---
 
 ```{r}
+library(MASS)
 library(tidyverse)
+# library(stats)
+library(lme4)
 ```
 
 ```{r}
@@ -44,38 +47,98 @@ established_summary <- an_dat %>%
   group_by(trt_label) %>% 
   summarize(n = n(),
             established_num = sum(established),
-            established.p = established_num/n
+            established_p = established_num/n
           )
 
 established_summary <- established_summary %>% 
-  mutate(failed.p = 1-established.p)
+  mutate(failed_num = n - established_num,
+    failed_p = 1-established_p)
   
 ```
+
+### Analyze establishment rate by treatment - using a GLM or GLMM framework
+
+```{r}
+
+## GLM framework
+
+m1 <- glm(established ~ trt_label, family = binomial, data = an_dat)
+m0 <- glm(established ~ 1, family = binomial, data = an_dat)
+
+summary(m1) 
+summary(aov(m1)) # To generate an overall p value
+# No significant difference in establishment rate across groups (F 6, 170 = 1.24, P=0.288)
+
+## GLMM framework
+
+m2 <- glmer(established ~ trt_label + (1|new_yard), family = binomial, data=an_dat)
+# singular
+m2.0 <- glmer(established ~ 1 + (1|new_yard), family = binomial, data=an_dat)
+
+summary(m2)
+
+anova(m2, m2.0)
+# No significant difference in establishment rate across groups (ChiSq 6 = 10.365, P=0.1101)
+
+```
+
+### Analyze issue rate by treatment - using a GLM or GLMM framework
+
+```{r}
+
+## GLM framework
+
+m3 <- glm(issues ~ trt_label, family = binomial, data = an_dat)
+
+summary(aov(m3)) # To generate an overall p value
+# No significant difference in occurrence of issues between treatments (F 6, 170 = 0.794, P=0.576)
+
+
+## GLMM framework
+
+m4 <- glmer(issues ~ trt_label + (1|new_yard), family = binomial, data=an_dat)
+# singular
+m4.0 <- glmer(issues ~ 1 + (1|new_yard), family = binomial, data=an_dat)
+
+anova(m4, m4.0)
+# No significant difference in occurrence of issues between treatments (ChiSq 6 = 5.275, p=0.5091) 
+
+```
+
+
+
+### Analyze establishment rate by treatment - using a GLMM framework
+
+```{r}
+```
+
+
+
 
 ### Plot establishment rate by treatment
 ```{r}
 
-established_summary_pivoted <- established_summary %>% 
-  pivot_longer(c(established.p, failed.p), names_to = "outcome", values_to = "proportion") 
+established_summary_piv2 <- established_summary %>% 
+  pivot_longer(c(established_p, failed_p), names_to = "outcome", values_to = "proportion") 
 
-established_summary_pivoted <- established_summary_pivoted %>% 
+established_summary_piv2 <- established_summary_piv2 %>% 
   mutate(
-    outcome_label = if_else(outcome == "established.p", "Established",
-      if_else(outcome == "failed.p", "Did not establish", NA))
+    outcome_label = if_else(outcome == "established_p", "Established",
+      if_else(outcome == "failed_p", "Did not establish", NA))
   )
 
 # Relevel factors for plotting
-established_summary_pivoted <- established_summary_pivoted %>%
+established_summary_piv2 <- established_summary_piv2 %>%
      mutate(trt_label = fct_relevel(trt_label, "Control", "Apivar", "Amitraz E.C.", "OA Dribble", "5x OA Dribble", "OA Vapor", "HopGuard")
                         )
 
-established_summary_pivoted <- established_summary_pivoted %>%
+established_summary_piv2 <- established_summary_piv2 %>%
      mutate(outcome_label = fct_relevel(outcome_label, "Did not establish", "Established")
             )
 
 
 # Plot establish vs. not
-established_summary_pivoted %>% 
+established_summary_piv2 %>% 
   ggplot(aes(x = trt_label, y = proportion, fill = outcome_label)) +
   geom_col(position = "stack", color = "black") +
   scale_colour_manual(
@@ -89,7 +152,7 @@ established_summary_pivoted %>%
   theme_classic(base_size = 30) + 
   theme(axis.text.x=element_text(angle=45,hjust=1), axis.title.x=element_blank(), legend.title = element_blank())
   
-ggsave("./outputs/established_p_2024-03-02 v2.png", width = 12, height = 8.625, units = "in")
+# ggsave("./outputs/established_p_2024-03-02 v2.png", width = 12, height = 8.625, units = "in")
 ```
 
 
@@ -105,19 +168,19 @@ issues_summary <- an_dat %>%
   summarize(n = n(),
             
             efb_num = sum(efb),
-            efb.p = efb_num/n,
+            efb_p = efb_num/n,
             
             weak_num = sum(weak),
-            weak.p = weak_num/n,
+            weak_p = weak_num/n,
             
             failed_num = sum(failed),
-            failed.p = failed_num/n,
+            failed_p = failed_num/n,
 
             QL_num = sum(QL),
-            QL.p = QL_num/n,
+            QL_p = QL_num/n,
             
             DL_num = sum(DL),
-            DL.p = DL_num/n
+            DL_p = DL_num/n
             
           )
 
@@ -139,16 +202,16 @@ sum(an_dat$issues) #60 colonies had any issue
 
 ```{r}
 issues_summary_pivoted <- issues_summary %>% 
-  pivot_longer(c(efb.p, weak.p, failed.p, QL.p, DL.p), names_to = "reason", values_to = "proportion") 
+  pivot_longer(c(efb_p, weak_p, failed_p, QL_p, DL_p), names_to = "reason", values_to = "proportion") 
 
 
 issues_summary_pivoted <- issues_summary_pivoted %>% 
   mutate(
-    reason_label = if_else(reason == "efb.p", "EFB",
-      if_else(reason == "weak.p", "Weak",
-                           if_else(reason == "failed.p", "Did not establish",
-                                   if_else(reason == "DL.p", "Drone layer",
-                                           if_else(reason == "QL.p", "Queenless", "NA"
+    reason_label = if_else(reason == "efb_p", "EFB",
+      if_else(reason == "weak_p", "Weak",
+                           if_else(reason == "failed_p", "Did not establish",
+                                   if_else(reason == "DL_p", "Drone layer",
+                                           if_else(reason == "QL_p", "Queenless", "NA"
                            )
     
     
@@ -193,7 +256,7 @@ ggsave("./outputs/CoD 2024-03-02 v4.png", width = 12, height = 8.625, units = "i
 # Graoh Only efb, weakness
 
 issues_summary_pivoted %>% 
-  filter(reason %in% c("weak.p", "efb.p")) %>% 
+  filter(reason %in% c("weak_p", "efb_p")) %>% 
   ggplot(aes(x = trt_label, y = proportion, fill = reason_label)) +
   geom_col(position = "stack") +
   scale_fill_viridis_d(direction = -1) +
@@ -207,7 +270,7 @@ ggsave("./outputs/CoD 2024-03-02 v5.png", width = 12, height = 8.625, units = "i
 # Only queen issues
 
 issues_summary_pivoted %>% 
-  filter(reason %in% c("failed.p", "QL.p", "DL.p")) %>% 
+  filter(reason %in% c("failed_p", "QL_p", "DL_p")) %>% 
   ggplot(aes(x = trt_label, y = proportion, fill = reason_label)) +
   geom_col(position = "stack") +
   scale_fill_viridis_d(direction = -1) +
