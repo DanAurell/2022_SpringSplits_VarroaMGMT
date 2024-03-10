@@ -11,6 +11,8 @@ output:
 library(MASS)
 library(tidyverse)
 library(lme4)
+library(emmeans)
+library(ggpubr) # For combo plot
 ```
 
 
@@ -28,8 +30,39 @@ temp <- temp %>%
     fob_44 = ch44_fob,
     fob_58 = ch58_fob,
     fob_72 = ch72_fob,
+    fob_77 = frames_bees,
     fob_105 = post_quick_fob
-  )
+  ) %>% 
+  mutate(
+    fob_77 = if_else(weak == 1, 0, fob_77),
+    trt_label = fct_relevel(trt_label, "Control", "Apivar", "Amitraz E.C.", "OA Dribble", "5x OA Dribble", "OA Vapor", "HopGuard")
+    )
+
+# names(temp)
+
+temp1 <- temp %>% 
+  filter(established == 1,
+         QL == 0,
+         DL == 0, 
+         efb == 0
+         ) # Still includes 5 "weak" colonies
+
+temp2 <- temp %>% 
+  filter(established == 1,
+         QL == 0,
+         DL == 0, 
+         efb == 0,
+         weak == 0
+         ) # Excludes 5 "weak" colonies
+
+temp %>% 
+  filter(weak == 1) %>% 
+  select(fob_77, post_kgs_C)
+# Of 5 weak colonies, we have d77 fob data for 1 colony
+# we have post kgs data for 1 colony
+
+# For argument's sake, let's set the FOB to 0, and exclude the 
+
 ```
 
 
@@ -37,22 +70,93 @@ temp <- temp %>%
 ## Analyze day 77 Colony strength
 
 ```{r}
-m.bees <- lm(frames_bees~trt_label, data = temp) # Next run should include a yard level random effect
-m.bees.2 <- lmer(frames_bees~trt_label + (1 | new_yard), data = temp)
-m.bees.3 <- lmer(frames_bees~ 1 + (1 | new_yard), data = temp)
-anova(m.bees.2, m.bees.3) # No improvement to include a treatment effect (p=1)
+m.bees1 <- lm(fob_77~trt_label, data = temp1) # Next run should include a yard level random effect
+m.bees2 <- lmer(fob_77~trt_label + (1 | new_yard), data = temp1)
+m.bees2.0 <- lmer(fob_77~ 1 + (1 | new_yard), data = temp1)
+anova(m.bees2, m.bees2.0) # No improvement to include a treatment effect (ChiSq 6 = 0.18, p=0.999)
 
-# Still make predictions based on m2, but no statistical detected effect of treatment (p=1)
+# Still make predictions based on m2, but no statistical detected effect of treatment
+
+# Send emmeans predictions to its own strength item
+emplot_strength <- emmip(m.bees2, ~trt_label, type = "response", CIs = TRUE, plotit = FALSE)
+emplot_strength <- emplot_strength %>% 
+  rename(
+    fob_77 = yvar
+  )
+
+
+emplot_strength <- emplot_strength %>% 
+  mutate(
+    trt_label = fct_relevel(trt_label, "Control", "Apivar", "Amitraz E.C.", "OA Dribble", "5x OA Dribble", "OA Vapor", "HopGuard")
+  )
+
+
 ```
+
+## Plot day 77 colony strength
+
+```{r}
+paneA <- ggplot() +
+  geom_boxplot(aes(x = trt_label, y = fob_77), fill = "#031C38", outlier.shape = NA, alpha = 0.6, color = "black", data = temp1) +
+  geom_point(aes(x = trt_label, y = fob_77), shape=20, size=10, color="black", fill="black", data = emplot_strength) +
+  #xlab("Treatment") +
+  ylab("Frames of bees") +
+  theme_classic( base_size = 30) +
+  theme(axis.text.x=element_text(angle=45,hjust=1), axis.title.x=element_blank())
+
+```
+
 
 ## Analyze data for colony weight post honey production
 
 ```{r}
-m.weight <- lm(post_lbs_C~trt_label, data = temp)
-m.weight.2 <- lmer(post_lbs_C ~ trt_label + (1 | new_yard), data = temp)
-m.weight.3 <- lmer(post_lbs_C ~ 1 + (1 | new_yard), data = temp)
-anova(m.weight.2, m.weight.3) # No effect of treatment (p=0.77)
+m.weight1 <- lm(post_kgs_C~trt_label, data = temp2)
+m.weight2 <- lmer(post_kgs_C ~ trt_label + (1 | new_yard), data = temp)
+m.weight2.0 <- lmer(post_kgs_C ~ 1 + (1 | new_yard), data = temp)
+anova(m.weight2, m.weight2.0) # No effect of treatment (ChiSq 6 = 3.292, p=0.7714)
 
 # Still graph predictions based on m2 to estimate effect size
+
+emplot_weight <- emmip(m.weight2, ~trt_label, type = "response", CIs = TRUE, plotit = FALSE)
+emplot_weight <- emplot_weight %>% 
+  rename(
+    post_kgs_C = yvar
+  )
+
+
+emplot_weight <- emplot_weight %>% 
+  mutate(
+    trt_label = fct_relevel(trt_label, "Control", "Apivar", "Amitraz E.C.", "OA Dribble", "5x OA Dribble", "OA Vapor", "HopGuard")
+  )
+
+
 ```
+
+
+## Plot post-harvest colony weight 
+
+```{r}
+paneB <- ggplot() +
+  geom_boxplot(aes(x = trt_label, y = post_kgs_C), fill = "#031C38", outlier.shape = NA, alpha = 0.6, color = "black", data = temp2) +
+  geom_point(aes(x = trt_label, y = post_kgs_C), shape=20, size=10, color="black", fill="black", data = emplot_weight) +
+  #xlab("Treatment") +
+  ylab("Hive weight (kg)") +
+  theme_classic( base_size = 30) +
+  theme(axis.text.x=element_text(angle=45,hjust=1), axis.title.x=element_blank())
+
+```
+
+
+
+## Combine plot panes
+
+ggarrange(paneA, paneB, ncol = 1, nrow = 2, labels = "AUTO", font.label = list(size = 30), common.legend = TRUE, legend = "right")
+
+
+```{r}
+ggarrange(paneA, paneB, ncol = 1, nrow = 2, labels = "AUTO", font.label = list(size = 30), common.legend = TRUE)
+
+ggsave("outputs/strength_weight v1.png", width = 8, height = 17.25, units = "in")
+```
+
 
