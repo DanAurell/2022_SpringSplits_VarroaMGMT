@@ -118,28 +118,29 @@ anova(m4, m4.0)
 ### Plot establishment rate by treatment
 ```{r}
 
-established_summary_piv2 <- established_summary %>% 
+established_summary_piv <- established_summary %>% 
   pivot_longer(c(established_p, failed_p), names_to = "outcome", values_to = "proportion") 
 
-established_summary_piv2 <- established_summary_piv2 %>% 
+established_summary_piv <- established_summary_piv %>% 
   mutate(
     outcome_label = if_else(outcome == "established_p", "Established",
-      if_else(outcome == "failed_p", "Did not establish", NA))
+      if_else(outcome == "failed_p", "Did not establish", NA)),
+    percent = 100*proportion
   )
 
 # Relevel factors for plotting
-established_summary_piv2 <- established_summary_piv2 %>%
+established_summary_piv <- established_summary_piv %>%
      mutate(trt_label = fct_relevel(trt_label, "Control", "Apivar", "Amitraz E.C.", "OA Dribble", "5x OA Dribble", "OA Vapor", "HopGuard")
                         )
 
-established_summary_piv2 <- established_summary_piv2 %>%
+established_summary_piv <- established_summary_piv %>%
      mutate(outcome_label = fct_relevel(outcome_label, "Did not establish", "Established")
             )
 
 
 # Plot establish vs. not
-established_summary_piv2 %>% 
-  ggplot(aes(x = trt_label, y = proportion, fill = outcome_label)) +
+established_summary_piv %>% 
+  ggplot(aes(x = trt_label, y = percent, fill = outcome_label)) +
   geom_col(position = "stack", color = "black") +
   scale_colour_manual(
   limits = c("Did not establish", "Established"),
@@ -147,12 +148,12 @@ established_summary_piv2 %>%
   values = c("white", "black"), 
   aesthetics = "fill"
 ) +
-  scale_y_continuous(limits = c(0,1)) + 
-  ylab("Proportion of colonies") +
+  scale_y_continuous(limits = c(0,100)) + 
+  ylab("Percent of colonies") +
   theme_classic(base_size = 30) + 
   theme(axis.text.x=element_text(angle=45,hjust=1), axis.title.x=element_blank(), legend.title = element_blank())
   
-# ggsave("./outputs/established_p_2024-03-02 v2.png", width = 12, height = 8.625, units = "in")
+ggsave("./outputs/established_p_2024-03-02 v3.png", width = 12, height = 8.625, units = "in")
 ```
 
 
