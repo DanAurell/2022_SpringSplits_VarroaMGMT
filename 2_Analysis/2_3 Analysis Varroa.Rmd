@@ -140,7 +140,7 @@ temp_piv %>%
   theme_classic(base_size = 30) +
   theme(axis.text.x=element_text(angle=45,hjust=1), axis.title.x=element_blank(), legend.position = "none")
 
-ggsave("./outputs/supp_varroa_daily v1.png", width = 12, height = 8.625, units = "in")
+# ggsave("./outputs/supp_varroa_daily v1.png", width = 12, height = 8.625, units = "in")
 ```
 
 ## Model pre-treatment differences
@@ -353,6 +353,37 @@ eff77 <- eff77 %>%
          )
 
 eff77 <- eff77[2:7,]
+
+
+# Make more pleasant treatment names in a trt_label column
+eff77 <- eff77 %>% 
+  mutate(
+    trt_label = if_else(term == "trt_labelApivar", "Apivar",
+                    if_else(term == "trt_labelOA Dribble", "OA Dribble", 
+                            if_else(term == "trt_label5x OA Dribble", "5x OA Dribble",
+                                   if_else(term == "trt_labelOA Vapor", "OA Vapor",
+                                           if_else(term == "trt_labelHopGuard", "HopGuard",
+                                                   if_else(term == "trt_labelAmitraz E.C.", "Amitraz E.C.", "NA"
+                                                           )
+                                                   ))))))
+# Add a trt_type column
+eff77 <- eff77 %>% 
+  mutate(
+    trt_type = if_else(trt_label == "Apivar", "Synthetic",
+                    if_else(trt_label == "OA Dribble", "Natural", 
+                            if_else(trt_label == "5x OA Dribble", "Natural",
+                                   if_else(trt_label == "OA Vapor", "Natural",
+                                           if_else(trt_label == "HopGuard", "Natural",
+                                                   if_else(trt_label == "Amitraz E.C.", "Synthetic", "NA"
+                                                           )
+                                                   ))))))
+
+eff77 <- eff77 %>% 
+  mutate(
+    trt_label = fct_relevel(trt_label, "Control", "Apivar", "Amitraz E.C.", "OA Dribble", "5x OA Dribble", "OA Vapor", "HopGuard")
+  )
+
+
 ```
 
 ## Day 103 Efficacy
@@ -380,6 +411,8 @@ effpost <- effpost %>%
 
 effpost <- effpost[2:7,]
 
+## To Do - clean up this data frame like I did for the eff77 data frame.
+
 ```
 
 
@@ -387,17 +420,25 @@ effpost <- effpost[2:7,]
 
 ```{r}
 eff77 %>% 
-  ggplot(aes(y = efficacy77, x = term), fill = "#031C38", alpha = 0.6) + 
+  ggplot(aes(y = efficacy77, x = trt_label, fill = trt_type), alpha = 0.6) + 
   geom_bar(stat = "identity", color = "black") +
   geom_errorbar(aes(ymin=efficacy77_LCL, ymax=efficacy77_UCL), width=0.5) +
-  
+  scale_colour_manual(
+    limits = c("Control", "Synthetic", "Natural"),
+    labels = c("Control", "Synthetic", "Natural"),
+    values = c("white", "#F8766D", "#619CFF"), 
+    aesthetics = "fill"
+  ) +  
   ylab("Efficacy (%)") +
-  scale_y_continuous(breaks = c(0,20,40,60,80,100)) +
-  theme_classic() + # base_size = 30
+  scale_y_continuous(breaks = c(-20, 0,20,40,60,80,100)) +
+  theme_classic(base_size = 30) +
   
-  theme(axis.text.x=element_text(angle=45,hjust=1),  axis.title.x=element_blank())
+  theme(axis.text.x=element_text(angle=45,hjust=1),  axis.title.x=element_blank(), legend.position = "none")
+
+ggsave("./outputs/efficacy_2024-03-11 v1.png", width = 12, height = 8.625, units = "in")
   
 ```
+
 ## Plot d103 efficacy
 
 ```{r}
@@ -468,6 +509,9 @@ pred <- bind_rows(pred_pre, pred_77, pred_post)
 # Graph Varroa infestation predictions
 
 ```{r}
+
+# User-selected color scale
+
 pred %>% 
   ggplot(mapping = aes(y = yvar, x = day, colour = trt_label)) +
   geom_hline(yintercept = 3, linetype = 2, colour = "red") +
@@ -475,18 +519,47 @@ pred %>%
   geom_point(size = 3) +
 
   scale_colour_manual(
-  limits = c("Control", "OA Vapor", "HopGuard", "OA Dribble", "Apivar", "5x OA Dribble", "Amitraz E.C."),
-  labels = c("Control", "OA Vapor", "HopGuard", "OA Dribble", "Apivar", "5x OA Dribble", "Amitraz E.C."),
+  limits = c("Control", "OA Vapor", "HopGuard", "Apivar", "OA Dribble", "5x OA Dribble", "Amitraz E.C."),
+  labels = c("Control", "OA Vapor", "HopGuard", "Apivar", "OA Dribble", "5x OA Dribble", "Amitraz E.C."),
   values = c("#F8766D", "#C49A00", "#53B400", "#00C094", "#00B6EB", "#A58AFF", "#FB61D7"), 
   aesthetics = "color") +
   
   scale_x_continuous(breaks = c(2, 77, 103)) +
-  # ylim(0,8) +
+  ylim(0,7) +
   
   ylab("Varroa infestation of\nadult bees (%)") +
-  xlab("Experiment day")
+  xlab("Experiment day") +
+  theme_classic(base_size = 30) +
+  theme(legend.title=element_blank())
+
+ggsave("./outputs/varroa_pred_2024-03-11 v1-manual.png", width = 12, height = 8.625, units = "in")
+
+# Viridis color scale
+
+pred %>% 
+  ggplot(mapping = aes(y = yvar, x = day, colour = trt_label)) +
+  geom_hline(yintercept = 3, linetype = 2, colour = "red") +
+  geom_line(size = 1.5) +
+  geom_point(size = 3) +
+
+  scale_colour_viridis_d(
+  limits = c("Control", "OA Vapor", "HopGuard", "Apivar", "OA Dribble", "5x OA Dribble", "Amitraz E.C."),
+  labels = c("Control", "OA Vapor", "HopGuard", "Apivar", "OA Dribble", "5x OA Dribble", "Amitraz E.C."),
+  aesthetics = "color",
+  direction = -1) +
   
-  # theme_classic(base_size = 30)
+  scale_x_continuous(breaks = c(2, 77, 103)) +
+  scale_y_continuous(breaks = c(0,1,2,3,4,5,6,7), labels = c(0,"","",3,"","",6,""), limits = c(0,7)) +
+  
+  ylab("Varroa infestation of\nadult bees (%)") +
+  xlab("Experiment day") +
+  theme_classic(base_size = 30) +
+  theme(legend.title=element_blank())
+
+ggsave("./outputs/varroa_pred_2024-03-11 v1-viridis.png", width = 12, height = 8.625, units = "in")
+
+
+
 ```
 
 
