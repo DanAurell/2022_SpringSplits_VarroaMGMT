@@ -264,6 +264,7 @@ colony4 <- colony4[!duplicated(colony4[, 1]), ]
 # "pa" means "paper_app"
 pa <- left_join(paper, colony4)
 
+# Make more pleasant treatment names in a trt_label column
 pa <- pa %>% 
   mutate(
     trt_label = if_else(trt == "1-Control", "Control",
@@ -273,6 +274,18 @@ pa <- pa %>%
                                    if_else(trt == "5-Vapor18", "OA Vapor",
                                            if_else(trt == "7-HopGuard", "HopGuard",
                                                    if_else(trt == "3-Taktic", "Amitraz E.C.", "NA"
+                                                           )
+                                                   )))))))
+# Add a trt_type column
+pa <- pa %>% 
+  mutate(
+    trt_type = if_else(trt == "1-Control", "Control",
+              if_else(trt == "2-Apivar", "Synthetic",
+                    if_else(trt == "4-Dribble18", "Natural", 
+                            if_else(trt == "6-ManyDribble", "Natural",
+                                   if_else(trt == "5-Vapor18", "Natural",
+                                           if_else(trt == "7-HopGuard", "Natural",
+                                                   if_else(trt == "3-Taktic", "Synthetic", "NA"
                                                            )
                                                    )))))))
 
