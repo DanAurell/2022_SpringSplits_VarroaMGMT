@@ -21,7 +21,6 @@ library(mgcv)
 ```
 
 
-
 # Read in data
 
 ```{r}
@@ -68,9 +67,9 @@ mean(unique(temp$days_numeric)) #102.75 ; round to 100
 
 ```
 
-# Assess were there pre-treatment and post-treatment differences in Varroa load?
+# Assess were there differences in Varroa load between treatments?
 
-## Describe levels on day 2 and 77
+## Describe levels on day 2, 77, post
 ```{r}
 temp %>% 
   summarise(mean = mean(ch2_perc_var))
@@ -82,63 +81,71 @@ temp %>%
   summarise(mean = mean(chpost_perc_var))
 
 temp %>%
-  filter(trt_label == "Control")
-    summarise(mean = mean(ch2_perc_var))
+  group_by(trt_label) %>% 
+    summarise(mean2 = mean(ch2_perc_var),
+              mean77 = mean(ch77_perc_var),
+              meanpost = mean(chpost_perc_var)
+              )
+```
 
-temp %>% 
-  summarise(mean = mean(ch77_perc_var))
 
-temp %>% 
-  summarise(mean = mean(chpost_perc_var))
+## Make long version of Varroa data
+```{r}
+temp_piv <- temp %>% 
+  pivot_longer(c(ch2_perc_var, ch77_perc_var, chpost_perc_var), names_to = "day", values_to = "perc_var") 
+
+temp_piv <- temp_piv %>%
+  mutate(trt_label = fct_relevel(trt_label, "Control", "Apivar", "Amitraz E.C.", "OA Dribble",  "5x OA Dribble","OA Vapor", "HopGuard"))
+
+# Rename "day" values to 2, 77, post
+
+temp_piv <- temp_piv %>% 
+  mutate(day = if_else(day == "ch2_perc_var", "2", 
+                       if_else(day == "ch77_perc_var", "77", 
+                               if_else(day == "chpost_perc_var", "Post", NA))))
+
+```
+
+## Determine how many were above/below 3% threshold for each treatment each day
+
+```{r}
+temp_piv <- temp_piv %>%
+  mutate(above = if_else(perc_var >= 3, 1, 0))
+
+# This above/below information is now saved in a df
+above_df <- temp_piv %>% 
+  group_by(day, trt_label) %>% 
+  summarize(n=n(),
+            above_num = sum(above),
+            above_p = above_num/n,)
 
 ```
 
 
 
-## Graph differences
 
+
+
+## Graph differences on day 2, 77, post
+
+
+
+Graph it
 ```{r}
-an_dat %>% 
-  ggplot(aes(x=trt_label, y = ch2_var_total)) +
-  geom_boxplot()
-# Doesn't look like it at first glance when all data are included
+temp_piv %>% 
+  ggplot(aes(x=trt_label, y = perc_var, fill = trt_label)) +
+  geom_boxplot() +
+  ylab("Varroa infestation of\nadult bees (%)") +
+  facet_wrap(~day) +
+  theme_classic(base_size = 30) +
+  theme(axis.text.x=element_text(angle=45,hjust=1), axis.title.x=element_blank(), legend.position = "none")
 
-an_dat %>% 
-  filter(issues == 0) %>% 
-  ggplot(aes(x=trt_label, y = ch2_var_total)) +
-  geom_boxplot()
-# But maybe HopGuard is high when we exclude colonies with issues
-
-
-
-an_dat %>% 
-  ggplot(aes(x=trt_label, y = ch77_var_total)) +
-  geom_boxplot()
-
-an_dat %>% 
-  filter(issues == 0) %>% 
-  ggplot(aes(x=trt_label, y = ch77_var_total)) +
-  geom_boxplot()
-
-# The stories are really similar whether you include the colonies with "issues" or not, but this just makes sense since the ones with issues had already been removed before day 77
-
-
+ggsave("./outputs/supp_varroa_daily v1.png", width = 12, height = 8.625, units = "in")
 ```
 
-
-
+## Model pre-treatment differences
 
 ```{r}
-## Including all colonies
-
-m.day2 <- glm.nb(ch2_var_total~trt_label, data = an_dat)
-summary(m.day2)
-
-m.day2.0 <- glm.nb(ch2_var_total~1, data = an_dat)
-summary(m.day2.0)
-
-anova(m.day2, m.day2.0) # Pre-treatment differences were not significant (P=0.84)
-
 
 ## Including only non-issues colonies
 
@@ -148,7 +155,18 @@ summary(m.day2)
 m.day2.0 <- glm.nb(ch2_var_total~1, data = temp)
 summary(m.day2.0)
 
-anova(m.day2, m.day2.0) # Pre-treatment differences were not significant (P=0.67)
+anova(m.day2, m.day2.0) # Pre-treatment differences were not significant (LR Stat 6 = 4.023; P=0.674)
+
+## Qualitatively same result if include all colonies
+m.day2 <- glm.nb(ch2_var_total~trt_label, data = an_dat)
+summary(m.day2)
+
+m.day2.0 <- glm.nb(ch2_var_total~1, data = an_dat)
+summary(m.day2.0)
+
+anova(m.day2, m.day2.0) # Pre-treatment differences were not significant (P=0.84)
+
+
 ```
 # Post-treatment differences
 
@@ -465,7 +483,7 @@ pred %>%
   scale_x_continuous(breaks = c(2, 77, 103)) +
   # ylim(0,8) +
   
-  ylab("Varroa / 100 bees") +
+  ylab("Varroa infestation of\nadult bees (%)") +
   xlab("Experiment day")
   
   # theme_classic(base_size = 30)

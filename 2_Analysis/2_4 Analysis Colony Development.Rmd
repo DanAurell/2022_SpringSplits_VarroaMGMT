@@ -13,6 +13,41 @@ library(tidyverse)
 library(lme4)
 library(emmeans)
 library(ggpubr) # For combo plot
+library(scales)
+```
+
+# Some useful code bits for plotting
+
+  scale_colour_manual(
+    limits = c("Apivar", "AEC", "Apiguard_Api"),
+    labels = c("Apivar", "Amitraz E.C.", "Combination"),
+    values = c("black", "black", "#00BA38"), 
+    aesthetics = "color"
+  ) +
+
+
+Decide on color scheme
+- salmon (synthetic)
+
+```{r}
+hue_pal()(3)
+show_col(hue_pal()(3))
+# Salmon #F8766D
+# Blue #619CFF
+
+show_col(hue_pal()(2))
+# Salmon same as above
+# Teal #00BFC4
+
+# My PowerPoint graph colors
+# Light Salmon
+# sRGB 244 178 132
+  # Hex #F4B284
+
+# Light Blue
+# sRGB 181 199 231
+  # Hex #B5C7E7
+
 ```
 
 
@@ -100,7 +135,7 @@ paneA <- ggplot() +
   geom_boxplot(aes(x = trt_label, y = fob_77), fill = "#031C38", outlier.shape = NA, alpha = 0.6, color = "black", data = temp1) +
   geom_point(aes(x = trt_label, y = fob_77), shape=20, size=10, color="black", fill="black", data = emplot_strength) +
   #xlab("Treatment") +
-  ylab("Frames of bees") +
+  ylab("Colony strength\n(frames of bees)") +
   theme_classic( base_size = 30) +
   theme(axis.text.x=element_text(angle=45,hjust=1), axis.title.x=element_blank())
 
@@ -140,7 +175,7 @@ paneB <- ggplot() +
   geom_boxplot(aes(x = trt_label, y = post_kgs_C), fill = "#031C38", outlier.shape = NA, alpha = 0.6, color = "black", data = temp2) +
   geom_point(aes(x = trt_label, y = post_kgs_C), shape=20, size=10, color="black", fill="black", data = emplot_weight) +
   #xlab("Treatment") +
-  ylab("Hive weight (kg)") +
+  ylab("\nHive weight (kg)") +
   theme_classic( base_size = 30) +
   theme(axis.text.x=element_text(angle=45,hjust=1), axis.title.x=element_blank())
 
