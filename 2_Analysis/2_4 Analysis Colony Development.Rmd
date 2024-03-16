@@ -104,15 +104,23 @@ temp %>%
 ## Analyze day 77 Colony strength
 
 ```{r}
-m.bees1 <- lm(fob_77~trt_label, data = temp1) # Next run should include a yard level random effect
-m.bees2 <- lmer(fob_77~trt_label + (1 | new_yard), data = temp1)
+m.bees1 <- lm(fob_77~trt_label, data = temp1) 
+m.bees1.0 <- lm(fob_77~1, data = temp1) 
+anova(m.bees1, m.bees1.0) # No improvement to include a treatment effect (ChiSq 6 = 0.0297, p=0.999)
+
+
+m.bees2 <- lmer(fob_77~trt_label + (1 | new_yard), data = temp1) # Check whether yard level random effect changes results
 m.bees2.0 <- lmer(fob_77~ 1 + (1 | new_yard), data = temp1)
 anova(m.bees2, m.bees2.0) # No improvement to include a treatment effect (ChiSq 6 = 0.18, p=0.999)
 
 # Still make predictions based on m2, but no statistical detected effect of treatment
 
 # Send emmeans predictions to its own strength item
-emplot_strength <- emmip(m.bees2, ~trt_label, type = "response", CIs = TRUE, plotit = FALSE)
+strength1 <- emmip(m.bees1, ~trt_label, type = "response", CIs = TRUE, plotit = FALSE)
+strength2 <- emmip(m.bees2, ~trt_label, type = "response", CIs = TRUE, plotit = FALSE)
+# The results were so similar that I am very happy sticking with the simpler model (no random effect)
+
+emplot_strength <- emmip(m.bees1, ~trt_label, type = "response", CIs = TRUE, plotit = FALSE)
 emplot_strength <- emplot_strength %>% 
   rename(
     fob_77 = yvar
@@ -136,7 +144,7 @@ emplot_strength <- emplot_strength %>%
 # No color
 
 paneA <- ggplot() +
-  geom_boxplot(aes(x = trt_label, y = fob_77), fill = "#031C38", outlier.shape = NA, alpha = 0.6, color = "black", data = temp1) +
+  geom_boxplot(aes(x = trt_label, y = fob_77), fill = "#031C38", outlier.shape = NA, color = "black", data = temp1) +
   geom_point(aes(x = trt_label, y = fob_77), shape=20, size=10, color="black", fill="black", data = emplot_strength) +
   #xlab("Treatment") +
   ylab("Colony strength\n(frames of bees)") +
@@ -146,7 +154,7 @@ paneA <- ggplot() +
 # Color, no treatment names (for vertical layout)
 
 paneA2 <- ggplot() +
-  geom_boxplot(aes(x = trt_label, y = fob_77, fill = trt_type), outlier.shape = NA, alpha = 0.6, color = "black", data = temp1) +
+  geom_boxplot(aes(x = trt_label, y = fob_77, fill = trt_type), outlier.shape = NA, color = "black", data = temp1) +
     scale_colour_manual(
     limits = c("Control", "Synthetic", "Natural"),
     labels = c("Control", "Synthetic", "Natural"),
@@ -162,7 +170,7 @@ paneA2 <- ggplot() +
 # Color and treatment names (for horizontal layout)
 
 paneA3 <- ggplot() +
-  geom_boxplot(aes(x = trt_label, y = fob_77, fill = trt_type), outlier.shape = NA, alpha = 0.6, color = "black", data = temp1) +
+  geom_boxplot(aes(x = trt_label, y = fob_77, fill = trt_type), outlier.shape = NA, color = "black", data = temp1) +
     scale_colour_manual(
     limits = c("Control", "Synthetic", "Natural"),
     labels = c("Control", "Synthetic", "Natural"),
@@ -186,13 +194,19 @@ paneA3 <- ggplot() +
 
 ```{r}
 m.weight1 <- lm(post_kgs_C~trt_label, data = temp2)
+m.weight1.0 <- lm(post_kgs_C~1, data = temp2)
+anova(m.weight1.0, m.weight1) # No effect of treatment (F 6 = 0.3224, p=0.9241)
+
 m.weight2 <- lmer(post_kgs_C ~ trt_label + (1 | new_yard), data = temp)
 m.weight2.0 <- lmer(post_kgs_C ~ 1 + (1 | new_yard), data = temp)
 anova(m.weight2, m.weight2.0) # No effect of treatment (ChiSq 6 = 3.292, p=0.7714)
 
-# Still graph predictions based on m2 to estimate effect size
+# Graph predictions based on m2 to estimate effect size
 
-emplot_weight <- emmip(m.weight2, ~trt_label, type = "response", CIs = TRUE, plotit = FALSE)
+weight1 <- emmip(m.weight1, ~trt_label, type = "response", CIs = TRUE, plotit = FALSE)
+weight2 <- emmip(m.weight2, ~trt_label, type = "response", CIs = TRUE, plotit = FALSE)
+
+emplot_weight <- emmip(m.weight1, ~trt_label, type = "response", CIs = TRUE, plotit = FALSE)
 emplot_weight <- emplot_weight %>% 
   rename(
     post_kgs_C = yvar
@@ -212,7 +226,7 @@ emplot_weight <- emplot_weight %>%
 
 ```{r}
 paneB <- ggplot() +
-  geom_boxplot(aes(x = trt_label, y = post_kgs_C), fill = "#031C38", outlier.shape = NA, alpha = 0.6, color = "black", data = temp2) +
+  geom_boxplot(aes(x = trt_label, y = post_kgs_C), fill = "#031C38", outlier.shape = NA, color = "black", data = temp2) +
   geom_point(aes(x = trt_label, y = post_kgs_C), shape=20, size=10, color="black", fill="black", data = emplot_weight) +
   #xlab("Treatment") +
   ylab("\nHive weight (kg)") +
@@ -222,7 +236,7 @@ paneB <- ggplot() +
 # Color
 
 paneB2 <- ggplot() +
-  geom_boxplot(aes(x = trt_label, y = post_kgs_C, fill = trt_type), outlier.shape = NA, alpha = 0.6, color = "black", data = temp2) +
+  geom_boxplot(aes(x = trt_label, y = post_kgs_C, fill = trt_type), outlier.shape = NA, color = "black", data = temp2) +
   geom_point(aes(x = trt_label, y = post_kgs_C), shape=20, size=10, color="black", fill="black", data = emplot_weight) +
     scale_colour_manual(
     limits = c("Control", "Synthetic", "Natural"),

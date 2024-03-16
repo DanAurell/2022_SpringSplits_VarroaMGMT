@@ -10,6 +10,7 @@ output:
 # Setup
 
 ```{r}
+
 library(MASS)
 library(tidyverse)
 library(emmeans)
@@ -20,11 +21,10 @@ library(lubridate)
 library(mgcv)
 ```
 
-
 # Read in data
 
 ```{r}
-an_dat <- read.csv("./data_prepared/an_dat_q.csv")
+an_dat <- read.csv("./data_prepared/an_dat.csv")
 
 names(an_dat)
 ```
@@ -59,6 +59,7 @@ temp <- temp %>%
     days_numeric = as.numeric(num_days)
   )
 
+unique(temp$days_numeric) # 95 to 113 days
 mean(unique(temp$days_numeric)) #102.75 ; round to 100
 
 # pattern <- "date"
@@ -69,7 +70,7 @@ mean(unique(temp$days_numeric)) #102.75 ; round to 100
 
 # Assess were there differences in Varroa load between treatments?
 
-## Describe levels on day 2, 77, post
+## Describe arithmetic means on day 2, 77, post
 ```{r}
 temp %>% 
   summarise(mean = mean(ch2_perc_var))
@@ -86,6 +87,11 @@ temp %>%
               mean77 = mean(ch77_perc_var),
               meanpost = mean(chpost_perc_var)
               )
+
+
+# Greatest numerical difference between 5x OA dribble and HopGuard
+
+# 2.0474221/0.8906983 = 2.3 times as many mites in the HopGuard group as in the 5x OA dribble. This justifies correcting for it statistically.
 ```
 
 
@@ -117,18 +123,11 @@ above_df <- temp_piv %>%
   group_by(day, trt_label) %>% 
   summarize(n=n(),
             above_num = sum(above),
-            above_p = above_num/n,)
+            above_perc = 100*above_num/n,)
 
 ```
 
-
-
-
-
-
-## Graph differences on day 2, 77, post
-
-
+## Graph Varroa levels on day 2, 77, post
 
 Graph it
 ```{r}
@@ -143,7 +142,7 @@ temp_piv %>%
 # ggsave("./outputs/supp_varroa_daily v1.png", width = 12, height = 8.625, units = "in")
 ```
 
-## Model pre-treatment differences
+## Assess pre-treatment differences statistically
 
 ```{r}
 
@@ -155,7 +154,7 @@ summary(m.day2)
 m.day2.0 <- glm.nb(ch2_var_total~1, data = temp)
 summary(m.day2.0)
 
-anova(m.day2, m.day2.0) # Pre-treatment differences were not significant (LR Stat 6 = 4.023; P=0.674)
+anova(m.day2, m.day2.0) # Pre-treatment differences were not significant (ChiSq 6 = 4.023; P=0.674)
 
 ## Qualitatively same result if include all colonies
 m.day2 <- glm.nb(ch2_var_total~trt_label, data = an_dat)
@@ -176,13 +175,13 @@ an_dat %>%
   geom_boxplot()
 # Looks like t
 
-m.day2 <- glm.nb(ch2_var_total~trt_label, data = an_dat)
+m.day77 <- glm.nb(ch77_var_total~trt_label, data = an_dat)
 summary(m.day2)
 
-m.day2.0 <- glm.nb(ch2_var_total~1, data = an_dat)
+m.day77.0 <- glm.nb(ch77_var_total~1, data = an_dat)
 summary(m.day2.0)
 
-anova(m.day2, m.day2.0) # Pre-treatment differences were not significant (P=0.84)
+anova(m.day77, m.day77.0) # Post-treatment differences were significant (ChiSq 6 = 28.9; P=6.30e-05)
 ```
 
 
@@ -192,17 +191,17 @@ anova(m.day2, m.day2.0) # Pre-treatment differences were not significant (P=0.84
 ## I would consider including yard as a random effect since we blocked by yard
 This should increase power to detect treatment effects
 But it gives a singular fit, so I will not use it as a random effect
-- But I think Steury was mentioning just make the model more patient with BOBYA
+- But I think Steury was mentioning just make the model more patient with BOBYQA
 
 ```{r}
-m1 <- glmer.nb(ch77_var_total~trt_label + ch2_var_total + (1|new_yard), data=temp)
-# singular
+# m1 <- glmer.nb(ch77_var_total~trt_label + ch2_var_total + (1|new_yard), data=temp)
+# singular help('isSingular')
 summary(m1)
-help('isSingular')
+
 
 
 m1.1 <- glm.nb(ch77_var_total~trt_label + ch2_var_total, data=temp)
-# singular
+# Not singular
 summary(m1.1)
 
 # SUUUPER SIMILAR RESULTS of coefficients with and without random effect
@@ -224,11 +223,27 @@ m2 <- glmer.nb(ch77_var_total ~
                  (1|new_yard), 
                data=temp)
 summary(m2)
-# Singular fit, still
+# Singular fit
 
 # Dr. Steury comment: Could try it with a BOBYQA optimizer...
-# ... see if get same estimates of effect
-# If same estimates of effect, can use this one, even if it has a singular fit
+# ... see if get same estimates of effect; Yes, I do.
+
+# If same estimates of effect as the model without random effect, can use this one, even if it has a singular fit
+# Yes, the estimates of effect are SO close that I will use the singular-fit model.
+
+
+m2.0 <- glmer.nb(ch77_var_total ~ 
+                 # trt_label + 
+                 ch2_perc_var +  # 1 = 1 mite per 100 bees
+                 offset(log(ch77_wash_bees)) +
+                 (1|new_yard), 
+               data=temp)
+summary(m2.0)
+
+anova(m2, m2.0) # There was a significant effect of treatment on day-77 Varroa load (ChiSq 6 = 37.279; P=1.554e-06)
+
+# Switching to BOBYQA optimizer using glmer argument glmerControl(optimizer="bobyqa") still gives singular fit.
+
 
 # Omitting random effect
 m3 <- glm.nb(ch77_var_total ~ 
@@ -246,10 +261,16 @@ m0 <- glm.nb(ch77_var_total ~
                data=temp)
 summary(m0)
 
-anova(m3, m0) # Significant effect of trt
+anova(m3, m0) 
+# Treatment significantly influenced Varroa load on day 77 (ChiSq 6 = 37.27869, P=1.553757e-06=0.000001553757)
 
-summary(m3) # Very similar estimates of effect
 
+
+
+summary(m3) 
+
+summary(m2)
+summary(m3)# Very similar estimates of effect
 
 ```
 
@@ -260,18 +281,89 @@ Used to make statistical comparisons between treatment groups
 
 ```{r}
 # Make a priori contrasts between treatments
-K <- contrMat(table(temp$trt_label), type="Tukey")
-Ksub <- rbind(K[c(3,4,5,6,8,9,10,11,16,17),])
+K <- contrMat(table(temp$trt_label), type="Tukey") # all contrasts
+Ksub <- rbind(K[c(3,4,5,6,8,9,10,11,16,17),]) # A priori hypotheses
+Ksub2 <- rbind(K[c(1:6),]) # Curious what happens if I just compare each treatment to control
 
-summary(glht(m3, linfct = mcp(trt_label = Ksub)),
-        test = adjusted("single-step")) # Used for p-values for ESA poster
+summary(glht(m2, linfct = mcp(trt_label = Ksub)),
+        test = adjusted("single-step"))
 
-# Approach varies journal to journal
+# Steury comment: Approach varies journal to journal
+# If I do it this way that I originally planned (a priori contrasts), I will need to justify why I'm selecting some comparisons in particular...
+
 # One thing I might do is just run all post-hoc comparisons
   # If qualitatively the same results as my initial approach I could just use those
-  # If I do it this way, I will need to justify why I'm selecting some comparisons in particular...
 
-```
+summary(glht(m2, linfct = mcp(trt_label = K)),
+        test = adjusted("single-step"))
+# Yes, this does provide qualitatively the same results. 
+# I use this for reporting results
+
+# Curious how much influence the p-value correction has
+summary(glht(m2, linfct = mcp(trt_label = K)),
+        test = adjusted("none"))
+
+# I want to be conservative and make sure I'm not unnecessarily writing off OA vapor. If I test each treatment against control, is OA still stat similar to control?
+
+summary(glht(m2, linfct = mcp(trt_label = Ksub2)),
+        test = adjusted("single-step"))
+# Yes, OA is still not distinguishable from control.
+
+
+
+``` 
+
+	 Simultaneous Tests for General Linear Hypotheses
+
+Multiple Comparisons of Means: User-defined Contrasts
+
+
+Fit: glm.nb(formula = ch77_var_total ~ trt_label + ch2_perc_var + 
+    offset(log(ch77_wash_bees)), data = temp, init.theta = 0.8927878706, 
+    link = log)
+
+Linear Hypotheses:
+                                  Estimate Std. Error z value Pr(>|z|)    
+Apivar - Control == 0             -1.62365    0.41092  -3.951  0.00158 ** 
+Amitraz E.C. - Control == 0       -2.07619    0.42998  -4.829  < 0.001 ***
+OA Dribble - Control == 0         -1.40645    0.39976  -3.518  0.00787 ** 
+5x OA Dribble - Control == 0      -1.72365    0.38863  -4.435  < 0.001 ***
+OA Vapor - Control == 0           -0.58540    0.39186  -1.494  0.74787    
+HopGuard - Control == 0           -1.75298    0.42241  -4.150  < 0.001 ***
+Amitraz E.C. - Apivar == 0        -0.45254    0.45102  -1.003  0.95321    
+OA Dribble - Apivar == 0           0.21720    0.42238   0.514  0.99866    
+5x OA Dribble - Apivar == 0       -0.10000    0.41209  -0.243  0.99998    
+OA Vapor - Apivar == 0             1.03825    0.41488   2.503  0.15754    
+HopGuard - Apivar == 0            -0.12933    0.44367  -0.292  0.99995    
+OA Dribble - Amitraz E.C. == 0     0.66974    0.44044   1.521  0.73176    
+5x OA Dribble - Amitraz E.C. == 0  0.35254    0.43205   0.816  0.98334    
+OA Vapor - Amitraz E.C. == 0       1.49079    0.43301   3.443  0.01030 *  
+HopGuard - Amitraz E.C. == 0       0.32321    0.45953   0.703  0.99241    
+5x OA Dribble - OA Dribble == 0   -0.31720    0.40140  -0.790  0.98590    
+OA Vapor - OA Dribble == 0         0.82105    0.40348   2.035  0.39126    
+HopGuard - OA Dribble == 0        -0.34653    0.43252  -0.801  0.98486    
+OA Vapor - 5x OA Dribble == 0      1.13825    0.39380   2.890  0.05869 .  
+HopGuard - 5x OA Dribble == 0     -0.02933    0.42551  -0.069  1.00000    
+HopGuard - OA Vapor == 0          -1.16758    0.42470  -2.749  0.08585 .  
+---
+
+(Adjusted p values reported -- single-step method)
+
+
+Several natural treatments had lower Varroa levels than the control:
+HopGuard was significantly lower than control (z=-4.150, p< 0.001), as was 5x OA Dribble (z=-4.435, p< 0.001) and OA Dribble (z=-3.518, p0.00787). However, the difference between Control and OA Vapor was not significant (z=-1.494, p=0.74787).
+
+The only other significant difference between treatments was that OA Vapor had more Varroa mites than Amitraz E.C. (z=3.443, P=0.01030).
+
+
+A - Control
+AB - OA Vapor
+BC - OA dribble
+BC- 5x OA dribble
+BC - HopGuard
+BC - Apivar
+C - AEC
+
 
 # Run models for post-honey Varroa
 The 4 experimental blocks had a staggered start, but ended at the same time (due to the honey harvest )
@@ -292,20 +384,42 @@ m4 <- glm.nb(chpost_var_total ~
 summary(m4)
 
 
-
-
-
-m5 <- glm.nb(chpost_var_total ~ 
+m4.0 <- glm.nb(chpost_var_total ~ 
                  trt_label + 
                  ch2_perc_var + 
                # days_numeric +
                  offset(log(chpost_wash_bees)), 
                data=temp)
 
+summary(m4.0)
+
+anova(m4, m4.0)
+# Effect of days was significant p = 0.003; go with m4
+
+m4.00 <- glm.nb(chpost_var_total ~ 
+                 # trt_label + 
+                 ch2_perc_var + 
+               days_numeric +
+                 offset(log(chpost_wash_bees)), 
+               data=temp)
+
+summary(m4.00)
+anova(m4, m4.00)
+# Effect of treatment was significant on day 103 as well (ChiSq 6 = 29.3; P=5.306197e-05=0.00005306197) 
+
+
+
+
+m5 <- glmer.nb(chpost_var_total ~ 
+               trt_label + 
+               ch2_perc_var +
+               days_numeric + # Very collinear with random effect
+               offset(log(chpost_wash_bees)) +
+             (1|new_yard), # Very collinear with random effect
+             data=temp)
 summary(m5)
 
-anova(m4, m5)
-# More complex model favored p = 0.003; go with m4
+
 ```
 
 ## How did the Varroa infestations vary between treatments on day 103?
@@ -319,29 +433,31 @@ Ksub <- rbind(K[c(3,4,5,6,8,9,10,11,16,17),])
 summary(glht(m4, linfct = mcp(trt_label = Ksub)),
         test = adjusted("single-step"))
 
+summary(glht(m4, linfct = mcp(trt_label = K)),
+        test = adjusted("single-step"))
+
 ```
 
 
 # Summarize results as efficacy
 - And get confidence intervals around efficacy
 
-## Day 77 Efficacy
+## Day 77 Efficacy - no random effect of yard included
 
 ```{r}
-
-
 tidy(m3)
+summary(m3)
 
-eff77 <- tidy(m3)
+eff77_3 <- tidy(m3)
 
-eff77_CI <- as.data.frame(confint(m3))
-eff77 <- cbind(eff77, eff77_CI)
-eff77 <- eff77 %>% 
+eff77_3CI <- as.data.frame(confint(m3))
+eff77_3b <- cbind(eff77_3, eff77_3CI)
+eff77_3b <- eff77_3b %>% 
   rename(LCL = "2.5 %", UCL = "97.5 %")
 
 
 
-eff77 <- eff77 %>% 
+eff77_3b <- eff77_3b %>% 
   mutate(times_as = exp(estimate),
          efficacy77 = 100*(1-times_as),
          
@@ -352,11 +468,11 @@ eff77 <- eff77 %>%
          efficacy77_UCL = 100*(1-times_as_LCL)
          )
 
-eff77 <- eff77[2:7,]
+eff77_3b <- eff77_3b[2:7,]
 
 
 # Make more pleasant treatment names in a trt_label column
-eff77 <- eff77 %>% 
+eff77_3b <- eff77_3b %>% 
   mutate(
     trt_label = if_else(term == "trt_labelApivar", "Apivar",
                     if_else(term == "trt_labelOA Dribble", "OA Dribble", 
@@ -367,7 +483,7 @@ eff77 <- eff77 %>%
                                                            )
                                                    ))))))
 # Add a trt_type column
-eff77 <- eff77 %>% 
+eff77_3b <- eff77_3b %>% 
   mutate(
     trt_type = if_else(trt_label == "Apivar", "Synthetic",
                     if_else(trt_label == "OA Dribble", "Natural", 
@@ -378,21 +494,114 @@ eff77 <- eff77 %>%
                                                            )
                                                    ))))))
 
-eff77 <- eff77 %>% 
+eff77_3b <- eff77_3b %>% 
   mutate(
-    trt_label = fct_relevel(trt_label, "Control", "Apivar", "Amitraz E.C.", "OA Dribble", "5x OA Dribble", "OA Vapor", "HopGuard")
+    trt_label = fct_relevel(trt_label, "Apivar", "Amitraz E.C.", "OA Dribble", "5x OA Dribble", "OA Vapor", "HopGuard")
+  )
+
+```
+
+
+## Day 77 Efficacy - GLMM with random effect of yard included
+
+```{r}
+library(broom.mixed)
+
+tidy(m2)
+
+eff77_2 <- tidy(m2)
+eff77_2CI <- as.data.frame(confint(m2))
+
+eff77_2 <- eff77_2[2:7,]
+eff77_2CI <- eff77_2CI[3:8,]
+
+
+eff77_2b <- cbind(eff77_2, eff77_2CI)
+eff77_2b <- eff77_2b %>% 
+  rename(LCL = "2.5 %", UCL = "97.5 %")
+
+
+
+eff77_2b <- eff77_2b %>% 
+  mutate(times_as = exp(estimate),
+         efficacy77 = 100*(1-times_as),
+         
+         times_as_UCL = exp(UCL),
+         efficacy77_LCL = 100*(1-times_as_UCL),
+         
+         times_as_LCL = exp(LCL),
+         efficacy77_UCL = 100*(1-times_as_LCL)
+         )
+
+
+# Make more pleasant treatment names in a trt_label column
+eff77_2b <- eff77_2b %>% 
+  mutate(
+    trt_label = if_else(term == "trt_labelApivar", "Apivar",
+                    if_else(term == "trt_labelOA Dribble", "OA Dribble", 
+                            if_else(term == "trt_label5x OA Dribble", "5x OA Dribble",
+                                   if_else(term == "trt_labelOA Vapor", "OA Vapor",
+                                           if_else(term == "trt_labelHopGuard", "HopGuard",
+                                                   if_else(term == "trt_labelAmitraz E.C.", "Amitraz E.C.", "NA"
+                                                           )
+                                                   ))))))
+# Add a trt_type column
+eff77_2b <- eff77_2b %>% 
+  mutate(
+    trt_type = if_else(trt_label == "Apivar", "Synthetic",
+                    if_else(trt_label == "OA Dribble", "Natural", 
+                            if_else(trt_label == "5x OA Dribble", "Natural",
+                                   if_else(trt_label == "OA Vapor", "Natural",
+                                           if_else(trt_label == "HopGuard", "Natural",
+                                                   if_else(trt_label == "Amitraz E.C.", "Synthetic", "NA"
+                                                           )
+                                                   ))))))
+
+eff77_2b <- eff77_2b %>% 
+  mutate(
+    trt_label = fct_relevel(trt_label, "Apivar", "Amitraz E.C.", "OA Dribble", "5x OA Dribble", "OA Vapor", "HopGuard")
   )
 
 
 ```
 
+
+## Decide what approach to take with Day 77 Efficacy
+
+eff77_2CI <- as.data.frame(confint(m2))
+Output:
+Computing profile confidence intervals ...
+Warning: slightly lower deviances (diff=-5.34328e-12) detected
+Warning: Last two rows have identical or NA .zeta values: using minstep
+Warning: slightly lower deviances (diff=-2.87628e-11) detected
+Warning: non-monotonic profile for .sig01
+Warning: unexpected decrease in profile: using minstep
+Warning: non-monotonic profile for (Intercept)
+Warning: bad spline fit for .sig01: falling back to linear interpolation
+Warning: collapsing to unique 'x' values
+Warning: bad spline fit for (Intercept): falling back to linear interpolation
+
+Mixed model eff77_2b has near-identical estimates of efficacy and CIs around efficacy as the standard model.
+I will choose to use the non-mixed efficacy
+
+
 ## Day 103 Efficacy
 
+Previous code:
+
+
+
+
+
+
 ```{r}
+library(broom)
+
+# Using the non-mixed model
 
 effpost <- tidy(m4)
-
 effpost_CI <- as.data.frame(confint(m4))
+
 effpost <- cbind(effpost, effpost_CI)
 effpost <- effpost %>% 
   rename(LCL = "2.5 %", UCL = "97.5 %")
@@ -413,14 +622,44 @@ effpost <- effpost[2:7,]
 
 ## To Do - clean up this data frame like I did for the eff77 data frame.
 
+# Make more pleasant treatment names in a trt_label column
+effpost <- effpost %>% 
+  mutate(
+    trt_label = if_else(term == "trt_labelApivar", "Apivar",
+                    if_else(term == "trt_labelOA Dribble", "OA Dribble", 
+                            if_else(term == "trt_label5x OA Dribble", "5x OA Dribble",
+                                   if_else(term == "trt_labelOA Vapor", "OA Vapor",
+                                           if_else(term == "trt_labelHopGuard", "HopGuard",
+                                                   if_else(term == "trt_labelAmitraz E.C.", "Amitraz E.C.", "NA"
+                                                           )
+                                                   ))))))
+# Add a trt_type column
+effpost <- effpost %>% 
+  mutate(
+    trt_type = if_else(trt_label == "Apivar", "Synthetic",
+                    if_else(trt_label == "OA Dribble", "Natural", 
+                            if_else(trt_label == "5x OA Dribble", "Natural",
+                                   if_else(trt_label == "OA Vapor", "Natural",
+                                           if_else(trt_label == "HopGuard", "Natural",
+                                                   if_else(trt_label == "Amitraz E.C.", "Synthetic", "NA"
+                                                           )
+                                                   ))))))
+
+effpost <- effpost %>% 
+  mutate(
+    trt_label = fct_relevel(trt_label, "Apivar", "Amitraz E.C.", "OA Dribble", "5x OA Dribble", "OA Vapor", "HopGuard")
+  )
+
+
+
 ```
 
 
 ## Plot d77 efficacy
 
 ```{r}
-eff77 %>% 
-  ggplot(aes(y = efficacy77, x = trt_label, fill = trt_type), alpha = 0.6) + 
+eff77_3b %>% 
+  ggplot(aes(y = efficacy77, x = trt_label, fill = trt_type)) + 
   geom_bar(stat = "identity", color = "black") +
   geom_errorbar(aes(ymin=efficacy77_LCL, ymax=efficacy77_UCL), width=0.5) +
   scale_colour_manual(
@@ -441,6 +680,30 @@ ggsave("./outputs/efficacy_2024-03-11 v1.png", width = 12, height = 8.625, units
 
 ## Plot d103 efficacy
 
+New plot
+```{r}
+effpost %>% 
+  ggplot(aes(y = efficacypost, x = trt_label, fill = trt_type), alpha = 0.6) + 
+  geom_bar(stat = "identity", color = "black") +
+  geom_errorbar(aes(ymin=efficacypost_LCL, ymax=efficacypost_UCL), width=0.5) +
+  scale_colour_manual(
+    limits = c("Control", "Synthetic", "Natural"),
+    labels = c("Control", "Synthetic", "Natural"),
+    values = c("white", "#F8766D", "#619CFF"), 
+    aesthetics = "fill"
+  ) +  
+  ylab("Efficacy (%)") +
+  scale_y_continuous(breaks = c(-100,-80,-60,-40,-20, 0,20,40,60,80,100), limits = c(-105,100)) +
+  theme_classic(base_size = 30) +
+  
+  theme(axis.text.x=element_text(angle=45,hjust=1),  axis.title.x=element_blank(), legend.position = "none")
+
+ggsave("./outputs/efficacypost_2024-03-15 v1.png", width = 12, height = 8.625, units = "in")
+```
+
+
+
+Old plot
 ```{r}
 effpost %>% 
   ggplot(aes(y = efficacypost, x = term), fill = "#031C38", alpha = 0.6) + 
@@ -561,6 +824,42 @@ ggsave("./outputs/varroa_pred_2024-03-11 v1-viridis.png", width = 12, height = 8
 
 
 ```
+
+# Determine how treatment effectiveness depends on days of brood break
+
+```{r}
+# Basic structure of model formulas:
+# End ~ start + length + start:length
+
+
+
+
+```
+
+
+
+
+
+
+# Make supplememtal tables
+
+## Supp Table S1: emmeans Varroa load predictions
+
+## Supp Table S2: Table of efficacies (d77, d103)
+
+```{r}
+eff77_3b %>% 
+  select(trt_label, efficacy77, efficacy77_LCL, efficacy77_UCL)
+
+
+```
+
+## Supp Table S3: Table of linear contrasts between treatments 
+- Day 77 single-step corrected
+- Day 77 uncorrected
+- Day 103 single-step corrected
+- Day 103 uncorrected
+
 
 
 
