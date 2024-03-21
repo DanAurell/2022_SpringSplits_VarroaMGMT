@@ -42,7 +42,7 @@ library(stringr)
 
 ## Read csv
 ```{r}
-paper <- read.csv("./data/manual_merge_paper_2023-05-23 v2.csv")
+paper <- read.csv("./data/manual_merge_paper_2023-05-23 v3.csv") # on v3 I added a post_issues column identifying those to exclude for honey harvest analyses (Varroa, weight)
 colony <- read.csv("./data/2022-06-14_125633__techteam__all_sample_export.csv", skip = 9, na.strings = c("", " ", "NA"))
 frame <- read.csv("./data/2022-06-14_125650__techteam__frame_side_export.csv")
 
