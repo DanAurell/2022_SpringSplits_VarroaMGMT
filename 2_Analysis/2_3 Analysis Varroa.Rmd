@@ -10,7 +10,6 @@ output:
 # Setup
 
 ```{r}
-
 library(MASS)
 library(tidyverse)
 library(emmeans)
@@ -19,6 +18,8 @@ library(multcomp)
 library(lme4)
 library(lubridate)
 library(mgcv)
+library(ggpubr) # For combo plot
+library(gt)
 ```
 
 # Read in data
@@ -26,12 +27,16 @@ library(mgcv)
 ```{r}
 an_dat <- read.csv("./data_prepared/an_dat.csv")
 
+an_dat %>% 
+  filter(issues == 0)
+
+
 names(an_dat)
 ```
 
 # Prepare data for Varroa infestation analysis
 
-Exclude any colonies that had EFB or queen issues or were removed due to weakness
+Exclude any colonies that had EFB or queen issues or were removed due to weakness by day 77
 ```{r}
 temp <- an_dat %>% 
   filter(issues == 0) %>% 
@@ -190,24 +195,8 @@ anova(m.day77, m.day77.0) # Post-treatment differences were significant (ChiSq 6
 
 ## I would consider including yard as a random effect since we blocked by yard
 This should increase power to detect treatment effects
-But it gives a singular fit, so I will not use it as a random effect
-- But I think Steury was mentioning just make the model more patient with BOBYQA
 
-```{r}
-# m1 <- glmer.nb(ch77_var_total~trt_label + ch2_var_total + (1|new_yard), data=temp)
-# singular help('isSingular')
-summary(m1)
-
-
-
-m1.1 <- glm.nb(ch77_var_total~trt_label + ch2_var_total, data=temp)
-# Not singular
-summary(m1.1)
-
-# SUUUPER SIMILAR RESULTS of coefficients with and without random effect
-
-```
-
+But many give singular fits, and the estimates are so similar to when you omit random effect, that I will not use random effects
 
 
 
@@ -216,35 +205,6 @@ summary(m1.1)
 ## Correcting for number of bees in sample by including it as an offset
 
 ```{r}
-m2 <- glmer.nb(ch77_var_total ~ 
-                 trt_label + 
-                 ch2_perc_var +  # 1 = 1 mite per 100 bees
-                 offset(log(ch77_wash_bees)) +
-                 (1|new_yard), 
-               data=temp)
-summary(m2)
-# Singular fit
-
-# Dr. Steury comment: Could try it with a BOBYQA optimizer...
-# ... see if get same estimates of effect; Yes, I do.
-
-# If same estimates of effect as the model without random effect, can use this one, even if it has a singular fit
-# Yes, the estimates of effect are SO close that I will use the singular-fit model.
-
-
-m2.0 <- glmer.nb(ch77_var_total ~ 
-                 # trt_label + 
-                 ch2_perc_var +  # 1 = 1 mite per 100 bees
-                 offset(log(ch77_wash_bees)) +
-                 (1|new_yard), 
-               data=temp)
-summary(m2.0)
-
-anova(m2, m2.0) # There was a significant effect of treatment on day-77 Varroa load (ChiSq 6 = 37.279; P=1.554e-06)
-
-# Switching to BOBYQA optimizer using glmer argument glmerControl(optimizer="bobyqa") still gives singular fit.
-
-
 # Omitting random effect
 m3 <- glm.nb(ch77_var_total ~ 
                  trt_label + 
@@ -266,10 +226,6 @@ anova(m3, m0)
 
 
 
-
-summary(m3) 
-
-summary(m2)
 summary(m3)# Very similar estimates of effect
 
 ```
@@ -285,7 +241,7 @@ K <- contrMat(table(temp$trt_label), type="Tukey") # all contrasts
 Ksub <- rbind(K[c(3,4,5,6,8,9,10,11,16,17),]) # A priori hypotheses
 Ksub2 <- rbind(K[c(1:6),]) # Curious what happens if I just compare each treatment to control
 
-summary(glht(m2, linfct = mcp(trt_label = Ksub)),
+summary(glht(m3, linfct = mcp(trt_label = Ksub)),
         test = adjusted("single-step"))
 
 # Steury comment: Approach varies journal to journal
@@ -294,18 +250,18 @@ summary(glht(m2, linfct = mcp(trt_label = Ksub)),
 # One thing I might do is just run all post-hoc comparisons
   # If qualitatively the same results as my initial approach I could just use those
 
-summary(glht(m2, linfct = mcp(trt_label = K)),
+summary(glht(m3, linfct = mcp(trt_label = K)),
         test = adjusted("single-step"))
 # Yes, this does provide qualitatively the same results. 
 # I use this for reporting results
 
 # Curious how much influence the p-value correction has
-summary(glht(m2, linfct = mcp(trt_label = K)),
+summary(glht(m3, linfct = mcp(trt_label = K)),
         test = adjusted("none"))
 
 # I want to be conservative and make sure I'm not unnecessarily writing off OA vapor. If I test each treatment against control, is OA still stat similar to control?
 
-summary(glht(m2, linfct = mcp(trt_label = Ksub2)),
+summary(glht(m3, linfct = mcp(trt_label = Ksub2)),
         test = adjusted("single-step"))
 # Yes, OA is still not distinguishable from control.
 
@@ -408,18 +364,6 @@ anova(m4, m4.00)
 # Effect of treatment was significant on day 103 as well (ChiSq 6 = 29.3; P=5.306197e-05=0.00005306197) 
 
 
-
-
-m5 <- glmer.nb(chpost_var_total ~ 
-               trt_label + 
-               ch2_perc_var +
-               days_numeric + # Very collinear with random effect
-               offset(log(chpost_wash_bees)) +
-             (1|new_yard), # Very collinear with random effect
-             data=temp)
-summary(m5)
-
-
 ```
 
 ## How did the Varroa infestations vary between treatments on day 103?
@@ -502,97 +446,12 @@ eff77_3b <- eff77_3b %>%
 ```
 
 
-## Day 77 Efficacy - GLMM with random effect of yard included
-
-```{r}
-library(broom.mixed)
-
-tidy(m2)
-
-eff77_2 <- tidy(m2)
-eff77_2CI <- as.data.frame(confint(m2))
-
-eff77_2 <- eff77_2[2:7,]
-eff77_2CI <- eff77_2CI[3:8,]
-
-
-eff77_2b <- cbind(eff77_2, eff77_2CI)
-eff77_2b <- eff77_2b %>% 
-  rename(LCL = "2.5 %", UCL = "97.5 %")
-
-
-
-eff77_2b <- eff77_2b %>% 
-  mutate(times_as = exp(estimate),
-         efficacy77 = 100*(1-times_as),
-         
-         times_as_UCL = exp(UCL),
-         efficacy77_LCL = 100*(1-times_as_UCL),
-         
-         times_as_LCL = exp(LCL),
-         efficacy77_UCL = 100*(1-times_as_LCL)
-         )
-
-
-# Make more pleasant treatment names in a trt_label column
-eff77_2b <- eff77_2b %>% 
-  mutate(
-    trt_label = if_else(term == "trt_labelApivar", "Apivar",
-                    if_else(term == "trt_labelOA Dribble", "OA Dribble", 
-                            if_else(term == "trt_label5x OA Dribble", "5x OA Dribble",
-                                   if_else(term == "trt_labelOA Vapor", "OA Vapor",
-                                           if_else(term == "trt_labelHopGuard", "HopGuard",
-                                                   if_else(term == "trt_labelAmitraz E.C.", "Amitraz E.C.", "NA"
-                                                           )
-                                                   ))))))
-# Add a trt_type column
-eff77_2b <- eff77_2b %>% 
-  mutate(
-    trt_type = if_else(trt_label == "Apivar", "Synthetic",
-                    if_else(trt_label == "OA Dribble", "Natural", 
-                            if_else(trt_label == "5x OA Dribble", "Natural",
-                                   if_else(trt_label == "OA Vapor", "Natural",
-                                           if_else(trt_label == "HopGuard", "Natural",
-                                                   if_else(trt_label == "Amitraz E.C.", "Synthetic", "NA"
-                                                           )
-                                                   ))))))
-
-eff77_2b <- eff77_2b %>% 
-  mutate(
-    trt_label = fct_relevel(trt_label, "Apivar", "Amitraz E.C.", "OA Dribble", "5x OA Dribble", "OA Vapor", "HopGuard")
-  )
-
-
-```
-
-
-## Decide what approach to take with Day 77 Efficacy
-
-eff77_2CI <- as.data.frame(confint(m2))
-Output:
-Computing profile confidence intervals ...
-Warning: slightly lower deviances (diff=-5.34328e-12) detected
-Warning: Last two rows have identical or NA .zeta values: using minstep
-Warning: slightly lower deviances (diff=-2.87628e-11) detected
-Warning: non-monotonic profile for .sig01
-Warning: unexpected decrease in profile: using minstep
-Warning: non-monotonic profile for (Intercept)
-Warning: bad spline fit for .sig01: falling back to linear interpolation
-Warning: collapsing to unique 'x' values
-Warning: bad spline fit for (Intercept): falling back to linear interpolation
 
 Mixed model eff77_2b has near-identical estimates of efficacy and CIs around efficacy as the standard model.
 I will choose to use the non-mixed efficacy
 
 
 ## Day 103 Efficacy
-
-Previous code:
-
-
-
-
-
 
 ```{r}
 library(broom)
@@ -655,73 +514,6 @@ effpost <- effpost %>%
 ```
 
 
-## Plot d77 efficacy
-
-```{r}
-eff77_3b %>% 
-  ggplot(aes(y = efficacy77, x = trt_label, fill = trt_type)) + 
-  geom_bar(stat = "identity", color = "black") +
-  geom_errorbar(aes(ymin=efficacy77_LCL, ymax=efficacy77_UCL), width=0.5) +
-  scale_colour_manual(
-    limits = c("Control", "Synthetic", "Natural"),
-    labels = c("Control", "Synthetic", "Natural"),
-    values = c("white", "#F8766D", "#619CFF"), 
-    aesthetics = "fill"
-  ) +  
-  ylab("Efficacy (%)") +
-  scale_y_continuous(breaks = c(-20, 0,20,40,60,80,100)) +
-  theme_classic(base_size = 30) +
-  
-  theme(axis.text.x=element_text(angle=45,hjust=1),  axis.title.x=element_blank(), legend.position = "none")
-
-ggsave("./outputs/efficacy_2024-03-11 v1.png", width = 12, height = 8.625, units = "in")
-  
-```
-
-## Plot d103 efficacy
-
-New plot
-```{r}
-effpost %>% 
-  ggplot(aes(y = efficacypost, x = trt_label, fill = trt_type), alpha = 0.6) + 
-  geom_bar(stat = "identity", color = "black") +
-  geom_errorbar(aes(ymin=efficacypost_LCL, ymax=efficacypost_UCL), width=0.5) +
-  scale_colour_manual(
-    limits = c("Control", "Synthetic", "Natural"),
-    labels = c("Control", "Synthetic", "Natural"),
-    values = c("white", "#F8766D", "#619CFF"), 
-    aesthetics = "fill"
-  ) +  
-  ylab("Efficacy (%)") +
-  scale_y_continuous(breaks = c(-100,-80,-60,-40,-20, 0,20,40,60,80,100), limits = c(-105,100)) +
-  theme_classic(base_size = 30) +
-  
-  theme(axis.text.x=element_text(angle=45,hjust=1),  axis.title.x=element_blank(), legend.position = "none")
-
-ggsave("./outputs/efficacypost_2024-03-15 v1.png", width = 12, height = 8.625, units = "in")
-```
-
-
-
-Old plot
-```{r}
-effpost %>% 
-  ggplot(aes(y = efficacypost, x = term), fill = "#031C38", alpha = 0.6) + 
-  geom_bar(stat = "identity", color = "black") +
-  geom_errorbar(aes(ymin=efficacypost_LCL, ymax=efficacypost_UCL), width=0.5) +
-  
-  ylab("Efficacy (%)") +
-  # scale_y_continuous(breaks = c(0,20,40,60,80,100)) +
-  theme_classic() + # base_size = 30
-  
-  theme(axis.text.x=element_text(angle=45,hjust=1),  axis.title.x=element_blank())
-  
-```
-
-
-
-
-
 Get predictions for day 77
 ```{r}
 pred_77 <- emmip(m3, ~ trt_label, type = "response", CIs = TRUE, plotit = FALSE, offset = log(100))
@@ -769,6 +561,16 @@ pred <- bind_rows(pred_pre, pred_77, pred_post)
 ```
 
 
+```{r}
+# Check sample size per treatment and day
+ssize <- temp_piv %>% 
+  group_by(day, trt_label) %>% 
+  summarize(n=n())
+
+```
+
+
+
 # Graph Varroa infestation predictions
 
 ```{r}
@@ -795,11 +597,11 @@ pred %>%
   theme_classic(base_size = 30) +
   theme(legend.title=element_blank())
 
-ggsave("./outputs/varroa_pred_2024-03-11 v1-manual.png", width = 12, height = 8.625, units = "in")
+# ggsave("./outputs/varroa_pred_2024-03-11 v1-manual.png", width = 12, height = 8.625, units = "in")
 
 # Viridis color scale
 
-pred %>% 
+paneA <- pred %>% 
   ggplot(mapping = aes(y = yvar, x = day, colour = trt_label)) +
   geom_hline(yintercept = 3, linetype = 2, colour = "red") +
   geom_line(size = 1.5) +
@@ -819,20 +621,122 @@ pred %>%
   theme_classic(base_size = 30) +
   theme(legend.title=element_blank())
 
-ggsave("./outputs/varroa_pred_2024-03-11 v1-viridis.png", width = 12, height = 8.625, units = "in")
+# ggsave("./outputs/varroa_pred_2024-03-11 v1-viridis.png", width = 12, height = 8.625, units = "in")
 
 
 
 ```
 
+
+## Plot d77 efficacy
+
+```{r}
+paneB <- eff77_3b %>% 
+  ggplot(aes(y = efficacy77, x = trt_label, fill = trt_type)) + 
+  geom_bar(stat = "identity", color = "black") +
+  geom_errorbar(aes(ymin=efficacy77_LCL, ymax=efficacy77_UCL), width=0.5) +
+  scale_colour_manual(
+    limits = c("Control", "Synthetic", "Natural"),
+    labels = c("Control", "Synthetic", "Natural"),
+    values = c("white", "#F8766D", "#619CFF"), 
+    aesthetics = "fill"
+  ) +  
+  ylab("Efficacy (%)") +
+  scale_y_continuous(breaks = c(-20, 0,20,40,60,80,100)) +
+  theme_classic(base_size = 30) +
+  
+  theme(axis.text.x=element_text(angle=45,hjust=1),  axis.title.x=element_blank(), legend.position = "none")
+
+# ggsave("./outputs/efficacy_2024-03-11 v1.png", width = 12, height = 8.625, units = "in")
+  
+```
+
+## Plot d103 efficacy
+
+New plot
+```{r}
+effpost %>% 
+  ggplot(aes(y = efficacypost, x = trt_label, fill = trt_type), alpha = 0.6) + 
+  geom_bar(stat = "identity", color = "black") +
+  geom_errorbar(aes(ymin=efficacypost_LCL, ymax=efficacypost_UCL), width=0.5) +
+  scale_colour_manual(
+    limits = c("Control", "Synthetic", "Natural"),
+    labels = c("Control", "Synthetic", "Natural"),
+    values = c("white", "#F8766D", "#619CFF"), 
+    aesthetics = "fill"
+  ) +  
+  ylab("Efficacy (%)") +
+  scale_y_continuous(breaks = c(-100,-80,-60,-40,-20, 0,20,40,60,80,100), limits = c(-105,100)) +
+  theme_classic(base_size = 30) +
+  
+  theme(axis.text.x=element_text(angle=45,hjust=1),  axis.title.x=element_blank(), legend.position = "none")
+
+# ggsave("./outputs/efficacypost_2024-03-15 v1.png", width = 12, height = 8.625, units = "in")
+```
+
+
+## Combine Pane A (Varroa predictions) and Pane B (day 77 Efficacy)
+
+```{r}
+ggarrange(paneA, paneB, ncol = 2, nrow = 1, heights = c(0.80, 1), widths = c(1, 0.80), labels = "AUTO", font.label = list(size = 30)) # common.legend = TRUE heights = 
+
+# ggsave("outputs/combo_var_efficacy 2024-03-16 v1.png", width = 17.25, height = 8, units = "in")
+```
+
+
 # Determine how treatment effectiveness depends on days of brood break
+
+```{r}
+# A worker brood cell becomes receptive to Varroa on day 8, and emerges on day 21
+
+temp <- temp %>% 
+  mutate(age_start_lay = start_layday - 2,
+          emerge_day = 21, # Age when worker brood starts emerging
+         receptive_day = start_layday + 8,
+         days_break = receptive_day - emerge_day,
+         completeYN = ifelse(days_break > 0, "Complete", "Not Complete"),
+         completeYN = fct_relevel(completeYN, "Not Complete", "Complete"),
+         delta_perc_var = ch77_perc_var-ch2_perc_var
+         )
+```
+
 
 ```{r}
 # Basic structure of model formulas:
 # End ~ start + length + start:length
 
+temp %>% 
+  ggplot(aes(x = ch2_perc_var, y = ch77_perc_var, color = days_break)) +
+  geom_point() +
+  facet_wrap(~trt_label)
+
+temp %>% 
+  ggplot(aes(x = days_break, y = ch77_perc_var-ch2_perc_var)) +
+  geom_point() +
+  facet_wrap(~trt_label)
+
+temp %>% 
+  ggplot(aes(x = completeYN, y = ch77_perc_var-ch2_perc_var)) +
+  geom_boxplot() +
+  facet_wrap(~trt_label)
+
+temp %>% 
+  ggplot(aes(x = delta_perc_var)) +
+  geom_histogram()
 
 
+m5 <- lmer(delta_perc_var ~ days_break + (1|trt_label), data = temp)
+m5.0 <- lmer(delta_perc_var ~ 1 + (1|trt_label), data = temp)
+# For every additional day of break, there were 0.05 fewer percent Varroa
+
+summary(m5)
+anova(m5, m5.0) # There was not a significant influence of brood break length on delta Varroa (P=0.2661)
+
+
+m6 <- lmer(delta_perc_var ~ completeYN + (1|trt_label), data = temp)
+m6.0 <- lmer(delta_perc_var ~ 1 + (1|trt_label), data = temp)
+
+anova(m6, m6.0)
 
 ```
 
