@@ -317,29 +317,52 @@ pa %>%
 
 Impute bees in alcohol wash for 3 colonies on day 77
 ```{r}
-pa %>% 
-  filter(ch77_wash_workers == "Missing")
+pa %>%filter(ch77_wash_workers == "Missing")
 # 22-078
 # 22-108
 # 22-124
 
-wash77_vec <- pa$ch77_wash_workers
-wash77_vec <- as.numeric(wash77_vec[!(wash77_vec == "Missing")])
-mean(wash77_vec, na.rm = TRUE) # 358.68
-
-wash77_vec <- pa$ch77_wash_drones
-wash77_vec <- as.numeric(wash77_vec[!(wash77_vec == "Missing")])
-mean(wash77_vec, na.rm = TRUE) # 3.59
-
-# To impute
-
 missed <- c("22-078", "22-108", "22-124")
 
+# Set as numeric... these were "character" because of "Missing" entry for bees in sample columns
+pa$ch77_wash_workers <- as.numeric(pa$ch77_wash_workers)
+pa$ch77_wash_drones <- as.numeric(pa$ch77_wash_drones)
+pa$ch77_wash_queens <- as.numeric(pa$ch77_wash_queens)
+
+  
+pa <- pa %>%   
+  mutate(ch2_wash_bees = ch2_wash_workers + ch2_wash_drones + ch2_wash_queens,
+         ch77_wash_bees = ch77_wash_workers + ch77_wash_drones + ch77_wash_queens,
+         chpost_wash_bees = chpost_wash_workers + chpost_wash_drones + chpost_wash_queens)
+
+# Here doing some descriptive stats (that will be reported in paper) - early because I need it to impute bee number in sample
+
+pa_piv <- pa %>% 
+  pivot_longer(
+    c(ch2_wash_bees, ch77_wash_bees, chpost_wash_bees), 
+    names_to = "day", 
+    values_to = "bees_in_sample") %>% 
+  select(colony_num, day, bees_in_sample)
+
+
+pa_piv %>% 
+  group_by(day) %>% 
+  summarize(
+    mean = mean(bees_in_sample, na.rm=TRUE),
+    min = min(bees_in_sample, na.rm=TRUE),
+    max = max(bees_in_sample, na.rm=TRUE)
+  )
+
+pa %>%
+  mutate(
+    
+  )
+
+
+# To impute day-77 
 pa <- pa %>% 
   mutate(
-    ch77_wash_workers = ifelse(colony_num %in% missed, 359, ch77_wash_workers),
-    ch77_wash_drones = ifelse(colony_num %in% missed, 4, ch77_wash_drones),
-    ch77_wash_queens = ifelse(colony_num %in% missed, 0, ch77_wash_queens),
+    ch77_wash_bees = ifelse(colony_num %in% missed, 362, ch77_wash_bees)
     )
 
 ```
@@ -459,6 +482,10 @@ Correct the hive weight based on the number of supers and 12 lbs per super
 12.005 was mean (min-max: 11.1-12.8) of 20 supers weighed before putting them on
 
 ```{r}
+12.005*0.454 # = 5.45
+11.1*0.454 # 5.04
+12.8*0.454 # 5.8
+
 pa <- pa %>% 
   mutate(post_lbs_C = post_lbs - 12*(post_supers_use-1),
          post_kgs_C = 0.454*post_lbs_C)
