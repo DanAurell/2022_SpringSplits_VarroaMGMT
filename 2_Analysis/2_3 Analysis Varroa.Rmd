@@ -70,6 +70,9 @@ mean(unique(temp$days_numeric)) #102.75 ; round to 100
 # pattern <- "date"
 #   grep(pattern, names(temp), value=TRUE)  
 
+temp_post <- 
+  temp %>% 
+  filter(is.na(post_issues))
 
 ```
 
@@ -103,7 +106,16 @@ temp %>%
 ## Make long version of Varroa data
 ```{r}
 temp_piv <- temp %>% 
-  pivot_longer(c(ch2_perc_var, ch77_perc_var, chpost_perc_var), names_to = "day", values_to = "perc_var") 
+  pivot_longer(c(ch2_perc_var, ch77_perc_var, chpost_perc_var), names_to = "day", values_to = "perc_var")
+
+temp_piv <- temp_piv %>% mutate(post_issues = ifelse(is.na(post_issues), 0, post_issues))
+
+temp_piv <- temp_piv %>% 
+  filter(
+    !((post_issues == 1) & (day == "chpost_perc_var"))
+  )
+# excluded post data for 10 colonies that had issues 
+
 
 temp_piv <- temp_piv %>%
   mutate(trt_label = fct_relevel(trt_label, "Control", "Apivar", "Amitraz E.C.", "OA Dribble",  "5x OA Dribble","OA Vapor", "HopGuard"))
@@ -144,7 +156,7 @@ temp_piv %>%
   theme_classic(base_size = 30) +
   theme(axis.text.x=element_text(angle=45,hjust=1), axis.title.x=element_blank(), legend.position = "none")
 
-# ggsave("./outputs/supp_varroa_daily v1.png", width = 12, height = 8.625, units = "in")
+ggsave("./outputs/supp_varroa_daily 2024-03-27.png", width = 12, height = 8.625, units = "in")
 ```
 
 ## Assess pre-treatment differences statistically
@@ -267,50 +279,12 @@ summary(glht(m3, linfct = mcp(trt_label = Ksub2)),
 
 
 
-``` 
-
-	 Simultaneous Tests for General Linear Hypotheses
-
-Multiple Comparisons of Means: User-defined Contrasts
-
-
-Fit: glm.nb(formula = ch77_var_total ~ trt_label + ch2_perc_var + 
-    offset(log(ch77_wash_bees)), data = temp, init.theta = 0.8927878706, 
-    link = log)
-
-Linear Hypotheses:
-                                  Estimate Std. Error z value Pr(>|z|)    
-Apivar - Control == 0             -1.62365    0.41092  -3.951  0.00158 ** 
-Amitraz E.C. - Control == 0       -2.07619    0.42998  -4.829  < 0.001 ***
-OA Dribble - Control == 0         -1.40645    0.39976  -3.518  0.00787 ** 
-5x OA Dribble - Control == 0      -1.72365    0.38863  -4.435  < 0.001 ***
-OA Vapor - Control == 0           -0.58540    0.39186  -1.494  0.74787    
-HopGuard - Control == 0           -1.75298    0.42241  -4.150  < 0.001 ***
-Amitraz E.C. - Apivar == 0        -0.45254    0.45102  -1.003  0.95321    
-OA Dribble - Apivar == 0           0.21720    0.42238   0.514  0.99866    
-5x OA Dribble - Apivar == 0       -0.10000    0.41209  -0.243  0.99998    
-OA Vapor - Apivar == 0             1.03825    0.41488   2.503  0.15754    
-HopGuard - Apivar == 0            -0.12933    0.44367  -0.292  0.99995    
-OA Dribble - Amitraz E.C. == 0     0.66974    0.44044   1.521  0.73176    
-5x OA Dribble - Amitraz E.C. == 0  0.35254    0.43205   0.816  0.98334    
-OA Vapor - Amitraz E.C. == 0       1.49079    0.43301   3.443  0.01030 *  
-HopGuard - Amitraz E.C. == 0       0.32321    0.45953   0.703  0.99241    
-5x OA Dribble - OA Dribble == 0   -0.31720    0.40140  -0.790  0.98590    
-OA Vapor - OA Dribble == 0         0.82105    0.40348   2.035  0.39126    
-HopGuard - OA Dribble == 0        -0.34653    0.43252  -0.801  0.98486    
-OA Vapor - 5x OA Dribble == 0      1.13825    0.39380   2.890  0.05869 .  
-HopGuard - 5x OA Dribble == 0     -0.02933    0.42551  -0.069  1.00000    
-HopGuard - OA Vapor == 0          -1.16758    0.42470  -2.749  0.08585 .  
----
-
-(Adjusted p values reported -- single-step method)
-
+```
 
 Several natural treatments had lower Varroa levels than the control:
 HopGuard was significantly lower than control (z=-4.150, p< 0.001), as was 5x OA Dribble (z=-4.435, p< 0.001) and OA Dribble (z=-3.518, p0.00787). However, the difference between Control and OA Vapor was not significant (z=-1.494, p=0.74787).
 
 The only other significant difference between treatments was that OA Vapor had more Varroa mites than Amitraz E.C. (z=3.443, P=0.01030).
-
 
 A - Control
 AB - OA Vapor
@@ -321,21 +295,73 @@ BC - Apivar
 C - AEC
 
 
+## Final code used for efficacy comparisons
+```{r}
+# Used for contrasts in LMS study
+# mo2021W <- glht(m2021W, linfct = mcp(OperationType="Tukey"))
+# t2021W <- tidy(mo2021W)
+
+
+cont77adj <- summary(glht(m3, linfct = mcp(trt_label = K)),
+        test = adjusted("single-step"))
+
+cont77raw <- summary(glht(m3, linfct = mcp(trt_label = K)),
+        test = adjusted("none"))
+
+cont77adj_t <- tidy(cont77adj)
+cont77raw_t <- tidy(cont77raw)
+
+cont77all <- full_join(cont77adj_t, cont77raw_t)
+
+cont77all$adj.p.value <- sprintf("%.3f", cont77all$adj.p.value)
+cont77all$p.value <- sprintf("%.3f", cont77all$p.value)
+cont77all$statistic <- sprintf("%.2f", cont77all$statistic)
+# After the fact will manually change 0.000 to < 0.001
+
+```
+
+## Make the table of contrasts
+```{r}
+cont77all2 <- cont77all %>% 
+  select(contrast, statistic, adj.p.value, p.value)
+
+cont77all3<- cont77all2 %>% 
+  group_by(day) %>% 
+  arrange(trt_label, .by_group = TRUE) %>% 
+  ungroup()
+
+
+cont_tbl <- gt(cont77all2)
+
+cont_rtf <- cont_tbl %>%
+  as_rtf()
+
+my_conn <- file("./outputs/SuppTable3_2024-03-27.RTF", "w")
+writeLines(cont_rtf, my_conn)
+close(my_conn)
+
+
+```
+
+
+
+
+
 # Run models for post-honey Varroa
 The 4 experimental blocks had a staggered start, but ended at the same time (due to the honey harvest )
 To account for the different length of time that each yard was in the experiment, I include the number of days as a predictor, and make predictions normalized to ~103 days of experiment length.
 
-```{r}
 
- pattern <- "bees"
-   grep(pattern, names(temp), value=TRUE) 
+
+
+```{r}
 
 m4 <- glm.nb(chpost_var_total ~ 
                  trt_label + 
                  ch2_perc_var + 
                days_numeric +
                  offset(log(chpost_wash_bees)), 
-               data=temp)
+               data=temp_post)
 
 summary(m4)
 
@@ -345,23 +371,23 @@ m4.0 <- glm.nb(chpost_var_total ~
                  ch2_perc_var + 
                # days_numeric +
                  offset(log(chpost_wash_bees)), 
-               data=temp)
+               data=temp_post)
 
 summary(m4.0)
 
 anova(m4, m4.0)
-# Effect of days was significant p = 0.003; go with m4
+# Effect of days was significant p = 0.02; go with m4
 
 m4.00 <- glm.nb(chpost_var_total ~ 
                  # trt_label + 
                  ch2_perc_var + 
                days_numeric +
                  offset(log(chpost_wash_bees)), 
-               data=temp)
+               data=temp_post)
 
 summary(m4.00)
 anova(m4, m4.00)
-# Effect of treatment was significant on day 103 as well (ChiSq 6 = 29.3; P=5.306197e-05=0.00005306197) 
+# Effect of treatment was significant on day 103 as well (ChiSq 6 = 26.6724; P=0.0001667661) 
 
 
 ```
@@ -403,13 +429,13 @@ eff77_3b <- eff77_3b %>%
 
 eff77_3b <- eff77_3b %>% 
   mutate(times_as = exp(estimate),
-         efficacy77 = 100*(1-times_as),
+         efficacy = 100*(1-times_as),
          
          times_as_UCL = exp(UCL),
-         efficacy77_LCL = 100*(1-times_as_UCL),
+         efficacy_LCL = 100*(1-times_as_UCL),
          
          times_as_LCL = exp(LCL),
-         efficacy77_UCL = 100*(1-times_as_LCL)
+         efficacy_UCL = 100*(1-times_as_LCL)
          )
 
 eff77_3b <- eff77_3b[2:7,]
@@ -443,6 +469,8 @@ eff77_3b <- eff77_3b %>%
     trt_label = fct_relevel(trt_label, "Apivar", "Amitraz E.C.", "OA Dribble", "5x OA Dribble", "OA Vapor", "HopGuard")
   )
 
+eff77_3b$day <- 77
+
 ```
 
 
@@ -468,13 +496,13 @@ effpost <- effpost %>%
 
 effpost <- effpost %>% 
   mutate(times_as = exp(estimate),
-         efficacypost = 100*(1-times_as),
+         efficacy = 100*(1-times_as),
          
          times_as_UCL = exp(UCL),
-         efficacypost_LCL = 100*(1-times_as_UCL),
+         efficacy_LCL = 100*(1-times_as_UCL),
          
          times_as_LCL = exp(LCL),
-         efficacypost_UCL = 100*(1-times_as_LCL)
+         efficacy_UCL = 100*(1-times_as_LCL)
          )
 
 effpost <- effpost[2:7,]
@@ -510,7 +538,7 @@ effpost <- effpost %>%
   )
 
 
-
+effpost$day <- 103
 ```
 
 
@@ -535,7 +563,7 @@ temp %>%
 Get predictions for day 103
 
 ```{r}
-pred_post <- emmip(m4, ~ trt_label, type = "response", CIs = TRUE, plotit = FALSE, offset = log(100))
+pred_post <- emmip(m4, ~ trt_label, type = "response", CIs = TRUE, plotit = FALSE, offset = log(100), at = list(ch2_perc_var = 1.42))
 
 pred_post$day <- 103
 
@@ -552,9 +580,7 @@ pred_pre <- pred_pre %>%
   rename(trt_label = pred_77.trt_label)
 
   
-  
-# eff <- data.frame(eff77$term, eff77$efficacy77, effpost$efficacypost[1:8])
-  
+
   
 
 pred <- bind_rows(pred_pre, pred_77, pred_post)
@@ -563,13 +589,109 @@ pred <- bind_rows(pred_pre, pred_77, pred_post)
 
 ```{r}
 # Check sample size per treatment and day
-ssize <- temp_piv %>% 
-  group_by(day, trt_label) %>% 
+ssize77 <- temp %>% 
+  group_by(trt_label) %>% 
   summarize(n=n())
+
+ssize2 <- ssize77
+
+ssize103 <- temp_post %>% 
+  group_by(trt_label) %>% 
+  summarize(n=n())
+
+ssize2$day <- 2
+ssize77$day <- 77
+ssize103$day <- 103
+
+ssize <- rbind(ssize2, ssize77, ssize103)
+
 
 ```
 
 
+# Make table of Varroa infestation predictions
+
+```{r}
+# Combine predictions and sample size
+
+pred2 <- left_join(pred, ssize)
+
+pred2 <- pred2 %>% 
+  select(day, trt_label, n, yvar, LCL, UCL)
+
+# Day 103 predictions are now based on a day 2 level of 1.42 - by adding at argument in emmip
+
+pred2$yvar <- sprintf("%.2f", pred2$yvar)
+pred2$LCL <- sprintf("%.2f", pred2$LCL)
+pred2$UCL <- sprintf("%.2f", pred2$UCL)
+
+
+pred2 <- pred2 %>% 
+  mutate(
+    Estimate = paste0(yvar, " [", LCL, "-", UCL, "]")
+  ) %>% 
+  select(-c(yvar, LCL, UCL))
+
+pred3<- pred2 %>% 
+  group_by(day) %>% 
+  arrange(trt_label, .by_group = TRUE) %>% 
+  ungroup()
+
+# Note that
+```
+
+
+```{r}
+pred_tbl <- gt(pred3)
+
+pred_rtf <- pred_tbl %>%
+  as_rtf()
+
+my_conn <- file("./outputs/SuppTable1_2024-03-21.RTF", "w")
+writeLines(pred_rtf, my_conn)
+close(my_conn)
+```
+
+
+# Make table of efficacy predictions
+
+```{r}
+# Combine day 77 and day 103 efficacy
+
+eff_all <- rbind(eff77_3b, effpost)
+
+
+eff_all2 <- eff_all %>% 
+  select(day, trt_label, efficacy, efficacy_LCL, efficacy_UCL)
+
+eff_all2$efficacy <- sprintf("%.2f", eff_all2$efficacy)
+eff_all2$efficacy_LCL <- sprintf("%.2f", eff_all2$efficacy_LCL)
+eff_all2$efficacy_UCL <- sprintf("%.2f", eff_all2$efficacy_UCL)
+
+
+eff_all2 <- eff_all2 %>% 
+  mutate(
+    Efficacy = paste0(efficacy, " [", efficacy_LCL, "-", efficacy_UCL, "]")
+  ) %>% 
+  select(-c(efficacy, efficacy_LCL, efficacy_UCL))
+
+eff_all3<- eff_all2 %>% 
+  group_by(day) %>% 
+  arrange(trt_label, .by_group = TRUE) %>% 
+  ungroup()
+
+```
+
+```{r}
+eff_all_tbl <- gt(eff_all3)
+
+eff_all_rtf <- eff_all_tbl %>%
+  as_rtf()
+
+my_conn <- file("./outputs/SuppTable2_2024-03-21.RTF", "w")
+writeLines(eff_all_rtf, my_conn)
+close(my_conn)
+```
 
 # Graph Varroa infestation predictions
 
@@ -608,8 +730,8 @@ paneA <- pred %>%
   geom_point(size = 3) +
 
   scale_colour_viridis_d(
-  limits = c("Control", "OA Vapor", "HopGuard", "Apivar", "OA Dribble", "5x OA Dribble", "Amitraz E.C."),
-  labels = c("Control", "OA Vapor", "HopGuard", "Apivar", "OA Dribble", "5x OA Dribble", "Amitraz E.C."),
+  limits = c("Control", "OA Vapor","Apivar", "HopGuard", "OA Dribble", "5x OA Dribble", "Amitraz E.C."),
+  labels = c("Control", "OA Vapor","Apivar", "HopGuard", "OA Dribble", "5x OA Dribble", "Amitraz E.C."),
   aesthetics = "color",
   direction = -1) +
   
@@ -621,7 +743,7 @@ paneA <- pred %>%
   theme_classic(base_size = 30) +
   theme(legend.title=element_blank())
 
-# ggsave("./outputs/varroa_pred_2024-03-11 v1-viridis.png", width = 12, height = 8.625, units = "in")
+# ggsave("./outputs/varroa_pred_2024-03-11 v2-viridis.png", width = 12, height = 8.625, units = "in")
 
 
 
@@ -632,9 +754,9 @@ paneA <- pred %>%
 
 ```{r}
 paneB <- eff77_3b %>% 
-  ggplot(aes(y = efficacy77, x = trt_label, fill = trt_type)) + 
+  ggplot(aes(y = efficacy, x = trt_label, fill = trt_type)) + 
   geom_bar(stat = "identity", color = "black") +
-  geom_errorbar(aes(ymin=efficacy77_LCL, ymax=efficacy77_UCL), width=0.5) +
+  geom_errorbar(aes(ymin=efficacy_LCL, ymax=efficacy_UCL), width=0.5) +
   scale_colour_manual(
     limits = c("Control", "Synthetic", "Natural"),
     labels = c("Control", "Synthetic", "Natural"),
@@ -647,7 +769,7 @@ paneB <- eff77_3b %>%
   
   theme(axis.text.x=element_text(angle=45,hjust=1),  axis.title.x=element_blank(), legend.position = "none")
 
-# ggsave("./outputs/efficacy_2024-03-11 v1.png", width = 12, height = 8.625, units = "in")
+# ggsave("./outputs/efficacy_2024-03-11 v2.png", width = 12, height = 8.625, units = "in")
   
 ```
 
@@ -656,9 +778,9 @@ paneB <- eff77_3b %>%
 New plot
 ```{r}
 effpost %>% 
-  ggplot(aes(y = efficacypost, x = trt_label, fill = trt_type), alpha = 0.6) + 
+  ggplot(aes(y = efficacy, x = trt_label, fill = trt_type), alpha = 0.6) + 
   geom_bar(stat = "identity", color = "black") +
-  geom_errorbar(aes(ymin=efficacypost_LCL, ymax=efficacypost_UCL), width=0.5) +
+  geom_errorbar(aes(ymin=efficacy_LCL, ymax=efficacy_UCL), width=0.5) +
   scale_colour_manual(
     limits = c("Control", "Synthetic", "Natural"),
     labels = c("Control", "Synthetic", "Natural"),
@@ -680,7 +802,7 @@ effpost %>%
 ```{r}
 ggarrange(paneA, paneB, ncol = 2, nrow = 1, heights = c(0.80, 1), widths = c(1, 0.80), labels = "AUTO", font.label = list(size = 30)) # common.legend = TRUE heights = 
 
-# ggsave("outputs/combo_var_efficacy 2024-03-16 v1.png", width = 17.25, height = 8, units = "in")
+ggsave("outputs/combo_var_efficacy 2024-03-21 v1.png", width = 17.25, height = 8, units = "in")
 ```
 
 
@@ -753,7 +875,7 @@ anova(m6, m6.0)
 
 ```{r}
 eff77_3b %>% 
-  select(trt_label, efficacy77, efficacy77_LCL, efficacy77_UCL)
+  select(trt_label, efficacy, efficacy_LCL, efficacy_UCL)
 
 
 ```
