@@ -68,12 +68,11 @@ temp <- temp %>%
     fob_105 = post_quick_fob
   ) %>% 
   mutate(
-    fob_77 = if_else(weak == 1, 0, fob_77),
+    fob_77 = if_else(weak == 1, 0, fob_77),# Set FOB to 0 for weak colonies
     trt_label = fct_relevel(trt_label, "Control", "Apivar", "Amitraz EC", "OA Dribble", "5x OA Dribble", "OA Vapor", "HopGuard")
     )
 
-# names(temp)
-
+# for d77 FOB analysis
 temp1 <- temp %>% 
   filter(established == 1,
          QL == 0,
@@ -81,21 +80,23 @@ temp1 <- temp %>%
          efb == 0
          ) # Still includes 5 "weak" colonies
 
+
+# for weight at honey harvest analysis
 temp2 <- temp %>% 
   filter(established == 1,
          QL == 0,
          DL == 0, 
          efb == 0,
          weak == 0
-         ) # Excludes 5 "weak" colonies
+         ) %>% 
+  filter(is.na(post_issues))
+# Excludes 5 "weak" colonies and 10 that had issues on day 103
 
 temp %>% 
   filter(weak == 1) %>% 
   select(fob_77, post_kgs_C)
 # Of 5 weak colonies, we have d77 fob data for 1 colony
 # we have post kgs data for 1 colony
-
-# For argument's sake, let's set the FOB to 0, and exclude the 
 
 ```
 
@@ -195,18 +196,18 @@ paneA3 <- ggplot() +
 ```{r}
 m.weight1 <- lm(post_kgs_C~trt_label, data = temp2)
 m.weight1.0 <- lm(post_kgs_C~1, data = temp2)
-anova(m.weight1.0, m.weight1) # No effect of treatment (F 6 = 0.3224, p=0.9241)
+anova(m.weight1.0, m.weight1) # NEW No effect of treatment (F 6 = 0.3604, p=0.9023)
 
-m.weight2 <- lmer(post_kgs_C ~ trt_label + (1 | new_yard), data = temp)
-m.weight2.0 <- lmer(post_kgs_C ~ 1 + (1 | new_yard), data = temp)
-anova(m.weight2, m.weight2.0) # No effect of treatment (ChiSq 6 = 3.292, p=0.7714)
+m.weight2 <- lmer(post_kgs_C ~ trt_label + (1 | new_yard), data = temp2)
+m.weight2.0 <- lmer(post_kgs_C ~ 1 + (1 | new_yard), data = temp2)
+anova(m.weight2, m.weight2.0) # No effect of treatment (ChiSq 6 = 3.0146, p=0.807)
 
 # Graph predictions based on m2 to estimate effect size
 
 weight1 <- emmip(m.weight1, ~trt_label, type = "response", CIs = TRUE, plotit = FALSE)
 weight2 <- emmip(m.weight2, ~trt_label, type = "response", CIs = TRUE, plotit = FALSE)
 
-emplot_weight <- emmip(m.weight1, ~trt_label, type = "response", CIs = TRUE, plotit = FALSE)
+emplot_weight <- emmip(m.weight2, ~trt_label, type = "response", CIs = TRUE, plotit = FALSE)
 emplot_weight <- emplot_weight %>% 
   rename(
     post_kgs_C = yvar
@@ -266,10 +267,10 @@ ggarrange(paneA2, paneB2, ncol = 1, nrow = 2, heights = c(0.82, 1), labels = "AU
 
 ggsave("outputs/strength_weight v2.png", width = 8, height = 17.25, units = "in")
 
-# version 3
+# version 3 - preferred version
 ggarrange(paneA3, paneB2, ncol = 2, nrow = 1, labels = "AUTO", font.label = list(size = 30)) # common.legend = TRUE
 
-ggsave("outputs/strength_weight v3.png", width = 17.25, height = 8, units = "in")
+ggsave("outputs/strength_weight 2024-04-24.png", width = 17.25, height = 8, units = "in")
 ```
 
 

@@ -10,6 +10,7 @@ output:
 # Setup
 
 ```{r}
+library(scales)
 library(MASS)
 library(tidyverse)
 library(emmeans)
@@ -156,7 +157,7 @@ temp_piv %>%
   theme_classic(base_size = 30) +
   theme(axis.text.x=element_text(angle=45,hjust=1), axis.title.x=element_blank(), legend.position = "none")
 
-ggsave("./outputs/supp_varroa_daily 2024-03-27.png", width = 12, height = 8.625, units = "in")
+# ggsave("./outputs/supp_varroa_daily 2024-04-24.png", width = 12, height = 8.625, units = "in")
 ```
 
 ## Assess pre-treatment differences statistically
@@ -198,7 +199,7 @@ summary(m.day2)
 m.day77.0 <- glm.nb(ch77_var_total~1, data = an_dat)
 summary(m.day2.0)
 
-anova(m.day77, m.day77.0) # Post-treatment differences were significant (ChiSq 6 = 28.9; P=6.30e-05)
+anova(m.day77, m.day77.0) # Day 77 differences were significant (ChiSq 6 = 28.9; P=6.30e-05)
 ```
 
 
@@ -325,18 +326,13 @@ cont77all$statistic <- sprintf("%.2f", cont77all$statistic)
 cont77all2 <- cont77all %>% 
   select(contrast, statistic, adj.p.value, p.value)
 
-cont77all3<- cont77all2 %>% 
-  group_by(day) %>% 
-  arrange(trt_label, .by_group = TRUE) %>% 
-  ungroup()
-
 
 cont_tbl <- gt(cont77all2)
 
 cont_rtf <- cont_tbl %>%
   as_rtf()
 
-my_conn <- file("./outputs/SuppTable3_2024-03-27.RTF", "w")
+my_conn <- file("./outputs/SuppTable3_2024-04-24.RTF", "w")
 writeLines(cont_rtf, my_conn)
 close(my_conn)
 
@@ -647,7 +643,7 @@ pred_tbl <- gt(pred3)
 pred_rtf <- pred_tbl %>%
   as_rtf()
 
-my_conn <- file("./outputs/SuppTable1_2024-03-21.RTF", "w")
+my_conn <- file("./outputs/SuppTable1_2024-04-24.RTF", "w")
 writeLines(pred_rtf, my_conn)
 close(my_conn)
 ```
@@ -688,7 +684,7 @@ eff_all_tbl <- gt(eff_all3)
 eff_all_rtf <- eff_all_tbl %>%
   as_rtf()
 
-my_conn <- file("./outputs/SuppTable2_2024-03-21.RTF", "w")
+my_conn <- file("./outputs/SuppTable2_2024-04-24.RTF", "w")
 writeLines(eff_all_rtf, my_conn)
 close(my_conn)
 ```
@@ -696,44 +692,32 @@ close(my_conn)
 # Graph Varroa infestation predictions
 
 ```{r}
+#extract hex color codes for a plot with three elements in ggplot2 
+hex <- hue_pal()(6)
+
+#overlay hex color codes on actual colors
+show_col(hue_pal(h = c (25,290), h.start = -15)(6))
+hex <- hue_pal(h = c (25,290), h.start = -15)(6)
+hex
+```
+
+DAN
+
+```{r}
 
 # User-selected color scale
 
-pred %>% 
+paneA.lab <- pred %>% 
   ggplot(mapping = aes(y = yvar, x = day, colour = trt_label)) +
   geom_hline(yintercept = 3, linetype = 2, colour = "red") +
-  geom_line(size = 1.5) +
-  geom_point(size = 3) +
+  geom_line(size = 1.5, alpha = 0.8) +
+  geom_point(size = 3, alpha = 0.8) +
 
   scale_colour_manual(
-  limits = c("Control", "OA Vapor", "HopGuard", "Apivar", "OA Dribble", "5x OA Dribble", "Amitraz EC"),
-  labels = c("Control", "OA Vapor", "HopGuard", "Apivar", "OA Dribble", "5x OA Dribble", "Amitraz EC"),
-  values = c("#F8766D", "#C49A00", "#53B400", "#00C094", "#00B6EB", "#A58AFF", "#FB61D7"), 
+  limits = c("OA Vapor", "Control", "Apivar", "HopGuard", "OA Dribble", "5x OA Dribble", "Amitraz EC"),
+  labels = c("OA Vapor", "Control", "Apivar", "HopGuard", "OA Dribble", "5x OA Dribble", "Amitraz EC"),
+  values = c("#FB737A", "black", "#C99800", "#5AB300", "#00C093", "#00B5EC", "#AE87FF"), 
   aesthetics = "color") +
-  
-  scale_x_continuous(breaks = c(2, 77, 103)) +
-  ylim(0,7) +
-  
-  ylab("Varroa infestation of\nadult bees (%)") +
-  xlab("Experiment day") +
-  theme_classic(base_size = 30) +
-  theme(legend.title=element_blank())
-
-# ggsave("./outputs/varroa_pred_2024-03-11 v1-manual.png", width = 12, height = 8.625, units = "in")
-
-# Viridis color scale
-
-paneA <- pred %>% 
-  ggplot(mapping = aes(y = yvar, x = day, colour = trt_label)) +
-  geom_hline(yintercept = 3, linetype = 2, colour = "red") +
-  geom_line(size = 1.5) +
-  geom_point(size = 3) +
-
-  scale_colour_viridis_d(
-  limits = c("Control", "OA Vapor","Apivar", "HopGuard", "OA Dribble", "5x OA Dribble", "Amitraz EC"),
-  labels = c("Control", "OA Vapor","Apivar", "HopGuard", "OA Dribble", "5x OA Dribble", "Amitraz EC"),
-  aesthetics = "color",
-  direction = -1) +
   
   scale_x_continuous(breaks = c(2, 77, 103)) +
   scale_y_continuous(breaks = c(0,1,2,3,4,5,6,7), labels = c(0,"","",3,"","",6,""), limits = c(0,7)) +
@@ -743,9 +727,27 @@ paneA <- pred %>%
   theme_classic(base_size = 30) +
   theme(legend.title=element_blank())
 
-# ggsave("./outputs/varroa_pred_2024-03-11 v2-viridis.png", width = 12, height = 8.625, units = "in")
+# ggsave("./outputs/varroa_pred_2024-03-11 v1-manual.png", width = 12, height = 8.625, units = "in")
 
+paneA.nolab <- pred %>% 
+  ggplot(mapping = aes(y = yvar, x = day, colour = trt_label)) +
+  geom_hline(yintercept = 3, linetype = 2, colour = "red") +
+  geom_line(size = 1.5, alpha = 0.8) +
+  geom_point(size = 3, alpha = 0.8) +
 
+  scale_colour_manual(
+  limits = c("OA Vapor", "Control", "Apivar", "HopGuard", "OA Dribble", "5x OA Dribble", "Amitraz EC"),
+  labels = c("OA Vapor", "Control", "Apivar", "HopGuard", "OA Dribble", "5x OA Dribble", "Amitraz EC"),
+  values = c("#FB737A", "black", "#C99800", "#5AB300", "#00C093", "#00B5EC", "#AE87FF"), 
+  aesthetics = "color") +
+  
+  scale_x_continuous(breaks = c(2, 77, 103)) +
+  scale_y_continuous(breaks = c(0,1,2,3,4,5,6,7), labels = c(0,"","",3,"","",6,""), limits = c(0,7)) +
+  
+  ylab("Varroa infestation of\nadult bees (%)") +
+  xlab("Experiment day") +
+  theme_classic(base_size = 30) +
+  theme(legend.position = "none")
 
 ```
 
@@ -800,9 +802,13 @@ effpost %>%
 ## Combine Pane A (Varroa predictions) and Pane B (day 77 Efficacy)
 
 ```{r}
-ggarrange(paneA, paneB, ncol = 2, nrow = 1, heights = c(0.80, 1), widths = c(1, 0.80), labels = "AUTO", font.label = list(size = 30)) # common.legend = TRUE heights = 
+ggarrange(paneA.lab, paneB, ncol = 2, nrow = 1, heights = c(0.80, 1), widths = c(1, 0.80), labels = "AUTO", font.label = list(size = 30)) # common.legend = TRUE heights = 
 
-ggsave("outputs/combo_var_efficacy 2024-03-21 v1.png", width = 17.25, height = 8, units = "in")
+ggsave("outputs/combo_var_efficacy 2024-04-24 label.png", width = 17.25, height = 8, units = "in")
+
+ggarrange(paneA.nolab, paneB, ncol = 2, nrow = 1, heights = c(0.80, 1), widths = c(1, 1), labels = "AUTO", font.label = list(size = 30)) # common.legend = TRUE heights = 
+
+ggsave("outputs/combo_var_efficacy 2024-04-24 nolabel.png", width = 17.25, height = 8, units = "in")
 ```
 
 
@@ -861,35 +867,6 @@ m6.0 <- lmer(delta_perc_var ~ 1 + (1|trt_label), data = temp)
 anova(m6, m6.0)
 
 ```
-
-
-
-
-
-
-# Make supplememtal tables
-
-## Supp Table S1: emmeans Varroa load predictions
-
-## Supp Table S2: Table of efficacies (d77, d103)
-
-```{r}
-eff77_3b %>% 
-  select(trt_label, efficacy, efficacy_LCL, efficacy_UCL)
-
-
-```
-
-## Supp Table S3: Table of linear contrasts between treatments 
-- Day 77 single-step corrected
-- Day 77 uncorrected
-- Day 103 single-step corrected
-- Day 103 uncorrected
-
-
-
-
-
 
 
 
