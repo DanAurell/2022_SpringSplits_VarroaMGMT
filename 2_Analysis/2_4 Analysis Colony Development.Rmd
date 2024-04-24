@@ -20,7 +20,7 @@ library(scales) # To decide on color scheme
 
   scale_colour_manual(
     limits = c("Apivar", "AEC", "Apiguard_Api"),
-    labels = c("Apivar", "Amitraz E.C.", "Combination"),
+    labels = c("Apivar", "Amitraz EC", "Combination"),
     values = c("black", "black", "#00BA38"), 
     aesthetics = "color"
   ) +
@@ -69,7 +69,7 @@ temp <- temp %>%
   ) %>% 
   mutate(
     fob_77 = if_else(weak == 1, 0, fob_77),
-    trt_label = fct_relevel(trt_label, "Control", "Apivar", "Amitraz E.C.", "OA Dribble", "5x OA Dribble", "OA Vapor", "HopGuard")
+    trt_label = fct_relevel(trt_label, "Control", "Apivar", "Amitraz EC", "OA Dribble", "5x OA Dribble", "OA Vapor", "HopGuard")
     )
 
 # names(temp)
@@ -129,7 +129,7 @@ emplot_strength <- emplot_strength %>%
 
 emplot_strength <- emplot_strength %>% 
   mutate(
-    trt_label = fct_relevel(trt_label, "Control", "Apivar", "Amitraz E.C.", "OA Dribble", "5x OA Dribble", "OA Vapor", "HopGuard")
+    trt_label = fct_relevel(trt_label, "Control", "Apivar", "Amitraz EC", "OA Dribble", "5x OA Dribble", "OA Vapor", "HopGuard")
   )
 
 
@@ -215,7 +215,7 @@ emplot_weight <- emplot_weight %>%
 
 emplot_weight <- emplot_weight %>% 
   mutate(
-    trt_label = fct_relevel(trt_label, "Control", "Apivar", "Amitraz E.C.", "OA Dribble", "5x OA Dribble", "OA Vapor", "HopGuard")
+    trt_label = fct_relevel(trt_label, "Control", "Apivar", "Amitraz EC", "OA Dribble", "5x OA Dribble", "OA Vapor", "HopGuard")
   )
 
 

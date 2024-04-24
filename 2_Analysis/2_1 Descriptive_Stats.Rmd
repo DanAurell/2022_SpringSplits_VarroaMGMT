@@ -130,7 +130,7 @@ established_summary_piv <- established_summary_piv %>%
 
 # Relevel factors for plotting
 established_summary_piv <- established_summary_piv %>%
-     mutate(trt_label = fct_relevel(trt_label, "Control", "Apivar", "Amitraz E.C.", "OA Dribble", "5x OA Dribble", "OA Vapor", "HopGuard")
+     mutate(trt_label = fct_relevel(trt_label, "Control", "Apivar", "Amitraz EC", "OA Dribble", "5x OA Dribble", "OA Vapor", "HopGuard")
                         )
 
 established_summary_piv <- established_summary_piv %>%
@@ -153,7 +153,7 @@ established_summary_piv %>%
   theme_classic(base_size = 30) + 
   theme(axis.text.x=element_text(angle=45,hjust=1), axis.title.x=element_blank(), legend.title = element_blank())
   
-# ggsave("./outputs/established_p_2024-03-02 v3.png", width = 12, height = 8.625, units = "in")
+# ggsave("./outputs/established_p_2024-04-24 v4.png", width = 12, height = 8.625, units = "in")
 ```
 
 
@@ -221,7 +221,7 @@ issues_summary_pivoted <- issues_summary_pivoted %>%
 # Relevel factors for plotting
 
 issues_summary_pivoted <- issues_summary_pivoted %>%
-     mutate(trt_label = fct_relevel(trt_label, "Control", "Apivar", "Amitraz E.C.", "OA Dribble", "5x OA Dribble", "OA Vapor", "HopGuard"),
+     mutate(trt_label = fct_relevel(trt_label, "Control", "Apivar", "Amitraz EC", "OA Dribble", "5x OA Dribble", "OA Vapor", "HopGuard"),
             reason_label = fct_relevel(reason_label,
     "Weak",
     "EFB",
@@ -251,36 +251,7 @@ issues_summary_pivoted %>%
   theme_classic(base_size = 30) + 
   theme(axis.text.x=element_text(angle=45,hjust=1), axis.title.x=element_blank(), legend.title = element_blank())
   
-# ggsave("./outputs/CoD 2024-03-02 v4.png", width = 12, height = 8.625, units = "in")
-
-
-# Graoh Only efb, weakness
-
-issues_summary_pivoted %>% 
-  filter(reason %in% c("weak_p", "efb_p")) %>% 
-  ggplot(aes(x = trt_label, y = proportion, fill = reason_label)) +
-  geom_col(position = "stack") +
-  scale_fill_viridis_d(direction = -1) +
-  scale_y_continuous(limits = c(0,1)) + 
-  ylab("Proportion of colonies") +
-  theme_classic(base_size = 30) + 
-  theme(axis.text.x=element_text(angle=45,hjust=1), axis.title.x=element_blank(), legend.title = element_blank())
-  
-# ggsave("./outputs/CoD 2024-03-02 v5.png", width = 12, height = 8.625, units = "in")
-
-# Only queen issues
-
-issues_summary_pivoted %>% 
-  filter(reason %in% c("failed_p", "QL_p", "DL_p")) %>% 
-  ggplot(aes(x = trt_label, y = proportion, fill = reason_label)) +
-  geom_col(position = "stack") +
-  scale_fill_viridis_d(direction = -1) +
-  scale_y_continuous(limits = c(0,1)) + 
-  ylab("Proportion of colonies") +
-  theme_classic(base_size = 30) + 
-  theme(axis.text.x=element_text(angle=45,hjust=1), axis.title.x=element_blank(), legend.title = element_blank())
-  
-# ggsave("./outputs/CoD 2024-03-02 v6.png", width = 12, height = 8.625, units = "in")
+# ggsave("./outputs/CoD 2024-04-24 v7.png", width = 12, height = 8.625, units = "in")
 
 ```
 
@@ -314,7 +285,7 @@ an_dat <- an_dat %>%
 
 # Relevel factors for plotting
 an_dat <- an_dat %>%
-     mutate(trt_label = fct_relevel(trt_label, "Control", "Apivar", "Amitraz E.C.", "OA Dribble", "5x OA Dribble", "OA Vapor", "HopGuard")
+     mutate(trt_label = fct_relevel(trt_label, "Control", "Apivar", "Amitraz EC", "OA Dribble", "5x OA Dribble", "OA Vapor", "HopGuard")
                         )
 
 
@@ -409,7 +380,7 @@ To potentially look at:
 
 
 ```{r}
-write.csv(an_dat, "./data_prepared/an_dat_q.csv")
+# write.csv(an_dat, "./data_prepared/an_dat_q.csv")
 ```
 
 

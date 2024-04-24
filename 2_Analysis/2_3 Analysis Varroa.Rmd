@@ -55,7 +55,7 @@ names(temp)
 unique(temp$trt_label)
 
 temp <- temp %>%
-  mutate(trt_label = fct_relevel(trt_label, "Control", "Apivar", "Amitraz E.C.", "OA Dribble",  "5x OA Dribble","OA Vapor", "HopGuard"))
+  mutate(trt_label = fct_relevel(trt_label, "Control", "Apivar", "Amitraz EC", "OA Dribble",  "5x OA Dribble","OA Vapor", "HopGuard"))
 
 # calculate the number of days between day 2 sampling and post sampling
 temp <- temp %>% 
@@ -118,7 +118,7 @@ temp_piv <- temp_piv %>%
 
 
 temp_piv <- temp_piv %>%
-  mutate(trt_label = fct_relevel(trt_label, "Control", "Apivar", "Amitraz E.C.", "OA Dribble",  "5x OA Dribble","OA Vapor", "HopGuard"))
+  mutate(trt_label = fct_relevel(trt_label, "Control", "Apivar", "Amitraz EC", "OA Dribble",  "5x OA Dribble","OA Vapor", "HopGuard"))
 
 # Rename "day" values to 2, 77, post
 
@@ -284,7 +284,7 @@ summary(glht(m3, linfct = mcp(trt_label = Ksub2)),
 Several natural treatments had lower Varroa levels than the control:
 HopGuard was significantly lower than control (z=-4.150, p< 0.001), as was 5x OA Dribble (z=-4.435, p< 0.001) and OA Dribble (z=-3.518, p0.00787). However, the difference between Control and OA Vapor was not significant (z=-1.494, p=0.74787).
 
-The only other significant difference between treatments was that OA Vapor had more Varroa mites than Amitraz E.C. (z=3.443, P=0.01030).
+The only other significant difference between treatments was that OA Vapor had more Varroa mites than Amitraz EC (z=3.443, P=0.01030).
 
 A - Control
 AB - OA Vapor
@@ -449,7 +449,7 @@ eff77_3b <- eff77_3b %>%
                             if_else(term == "trt_label5x OA Dribble", "5x OA Dribble",
                                    if_else(term == "trt_labelOA Vapor", "OA Vapor",
                                            if_else(term == "trt_labelHopGuard", "HopGuard",
-                                                   if_else(term == "trt_labelAmitraz E.C.", "Amitraz E.C.", "NA"
+                                                   if_else(term == "trt_labelAmitraz EC", "Amitraz EC", "NA"
                                                            )
                                                    ))))))
 # Add a trt_type column
@@ -460,13 +460,13 @@ eff77_3b <- eff77_3b %>%
                             if_else(trt_label == "5x OA Dribble", "Natural",
                                    if_else(trt_label == "OA Vapor", "Natural",
                                            if_else(trt_label == "HopGuard", "Natural",
-                                                   if_else(trt_label == "Amitraz E.C.", "Synthetic", "NA"
+                                                   if_else(trt_label == "Amitraz EC", "Synthetic", "NA"
                                                            )
                                                    ))))))
 
 eff77_3b <- eff77_3b %>% 
   mutate(
-    trt_label = fct_relevel(trt_label, "Apivar", "Amitraz E.C.", "OA Dribble", "5x OA Dribble", "OA Vapor", "HopGuard")
+    trt_label = fct_relevel(trt_label, "Apivar", "Amitraz EC", "OA Dribble", "5x OA Dribble", "OA Vapor", "HopGuard")
   )
 
 eff77_3b$day <- 77
@@ -517,7 +517,7 @@ effpost <- effpost %>%
                             if_else(term == "trt_label5x OA Dribble", "5x OA Dribble",
                                    if_else(term == "trt_labelOA Vapor", "OA Vapor",
                                            if_else(term == "trt_labelHopGuard", "HopGuard",
-                                                   if_else(term == "trt_labelAmitraz E.C.", "Amitraz E.C.", "NA"
+                                                   if_else(term == "trt_labelAmitraz EC", "Amitraz EC", "NA"
                                                            )
                                                    ))))))
 # Add a trt_type column
@@ -528,13 +528,13 @@ effpost <- effpost %>%
                             if_else(trt_label == "5x OA Dribble", "Natural",
                                    if_else(trt_label == "OA Vapor", "Natural",
                                            if_else(trt_label == "HopGuard", "Natural",
-                                                   if_else(trt_label == "Amitraz E.C.", "Synthetic", "NA"
+                                                   if_else(trt_label == "Amitraz EC", "Synthetic", "NA"
                                                            )
                                                    ))))))
 
 effpost <- effpost %>% 
   mutate(
-    trt_label = fct_relevel(trt_label, "Apivar", "Amitraz E.C.", "OA Dribble", "5x OA Dribble", "OA Vapor", "HopGuard")
+    trt_label = fct_relevel(trt_label, "Apivar", "Amitraz EC", "OA Dribble", "5x OA Dribble", "OA Vapor", "HopGuard")
   )
 
 
@@ -706,8 +706,8 @@ pred %>%
   geom_point(size = 3) +
 
   scale_colour_manual(
-  limits = c("Control", "OA Vapor", "HopGuard", "Apivar", "OA Dribble", "5x OA Dribble", "Amitraz E.C."),
-  labels = c("Control", "OA Vapor", "HopGuard", "Apivar", "OA Dribble", "5x OA Dribble", "Amitraz E.C."),
+  limits = c("Control", "OA Vapor", "HopGuard", "Apivar", "OA Dribble", "5x OA Dribble", "Amitraz EC"),
+  labels = c("Control", "OA Vapor", "HopGuard", "Apivar", "OA Dribble", "5x OA Dribble", "Amitraz EC"),
   values = c("#F8766D", "#C49A00", "#53B400", "#00C094", "#00B6EB", "#A58AFF", "#FB61D7"), 
   aesthetics = "color") +
   
@@ -730,8 +730,8 @@ paneA <- pred %>%
   geom_point(size = 3) +
 
   scale_colour_viridis_d(
-  limits = c("Control", "OA Vapor","Apivar", "HopGuard", "OA Dribble", "5x OA Dribble", "Amitraz E.C."),
-  labels = c("Control", "OA Vapor","Apivar", "HopGuard", "OA Dribble", "5x OA Dribble", "Amitraz E.C."),
+  limits = c("Control", "OA Vapor","Apivar", "HopGuard", "OA Dribble", "5x OA Dribble", "Amitraz EC"),
+  labels = c("Control", "OA Vapor","Apivar", "HopGuard", "OA Dribble", "5x OA Dribble", "Amitraz EC"),
   aesthetics = "color",
   direction = -1) +
   
