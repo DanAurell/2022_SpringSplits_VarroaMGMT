@@ -701,22 +701,22 @@ hex <- hue_pal(h = c (25,290), h.start = -15)(6)
 hex
 ```
 
-DAN
+DAN work on colors for color and BW version of combo figure
 
 ```{r}
 
 # User-selected color scale
 
-paneA.lab <- pred %>% 
+paneA <- pred %>% 
   ggplot(mapping = aes(y = yvar, x = day, colour = trt_label)) +
   geom_hline(yintercept = 3, linetype = 2, colour = "red") +
   geom_line(size = 1.5, alpha = 0.8) +
   geom_point(size = 3, alpha = 0.8) +
 
   scale_colour_manual(
-  limits = c("OA Vapor", "Control", "Apivar", "HopGuard", "OA Dribble", "5x OA Dribble", "Amitraz EC"),
-  labels = c("OA Vapor", "Control", "Apivar", "HopGuard", "OA Dribble", "5x OA Dribble", "Amitraz EC"),
-  values = c("#FB737A", "black", "#C99800", "#5AB300", "#00C093", "#00B5EC", "#AE87FF"), 
+  limits = c("Control", "OA Vapor", "OA Dribble", "Apivar", "5x OA Dribble", "HopGuard","Amitraz EC"),
+  labels = c("Control", "OA Vapor", "OA Dribble", "Apivar", "5x OA Dribble", "HopGuard","Amitraz EC"),
+  values = c("black", "#619CFF", "#619CFF", "#F8766D", "#619CFF", "#619CFF", "#F8766D"), 
   aesthetics = "color") +
   
   scale_x_continuous(breaks = c(2, 77, 103)) +
@@ -724,30 +724,58 @@ paneA.lab <- pred %>%
   
   ylab("Varroa infestation of\nadult bees (%)") +
   xlab("Experiment day") +
-  theme_classic(base_size = 30) +
+  theme_classic(base_size = 30)
+  
+  
+
+
+paneA.lab <- 
+  paneA +
   theme(legend.title=element_blank())
+  
 
 # ggsave("./outputs/varroa_pred_2024-03-11 v1-manual.png", width = 12, height = 8.625, units = "in")
 
-paneA.nolab <- pred %>% 
+
+paneA.nolab <- 
+  paneA +
+  theme(legend.position = "none")
+
+
+# BW color scale
+
+# Make paneA.BW
+
+paneA.BW <- pred %>% 
   ggplot(mapping = aes(y = yvar, x = day, colour = trt_label)) +
-  geom_hline(yintercept = 3, linetype = 2, colour = "red") +
+  geom_hline(yintercept = 3, linetype = 2) +
   geom_line(size = 1.5, alpha = 0.8) +
   geom_point(size = 3, alpha = 0.8) +
 
   scale_colour_manual(
-  limits = c("OA Vapor", "Control", "Apivar", "HopGuard", "OA Dribble", "5x OA Dribble", "Amitraz EC"),
-  labels = c("OA Vapor", "Control", "Apivar", "HopGuard", "OA Dribble", "5x OA Dribble", "Amitraz EC"),
-  values = c("#FB737A", "black", "#C99800", "#5AB300", "#00C093", "#00B5EC", "#AE87FF"), 
+  limits = c("Control", "OA Vapor", "OA Dribble", "Apivar", "5x OA Dribble", "HopGuard","Amitraz EC"),
+  labels = c("Control", "OA Vapor", "OA Dribble", "Apivar", "5x OA Dribble", "HopGuard","Amitraz EC"),
+  values = c("black", "grey50", "grey50", "grey75", "grey50", "grey50", "grey75"), 
   aesthetics = "color") +
   
   scale_x_continuous(breaks = c(2, 77, 103)) +
   scale_y_continuous(breaks = c(0,1,2,3,4,5,6,7), labels = c(0,"","",3,"","",6,""), limits = c(0,7)) +
   
   ylab("Varroa infestation of\nadult bees (%)") +
-  xlab("Experiment day") +
-  theme_classic(base_size = 30) +
+  xlab("Experiment day") + 
+  theme_classic(base_size = 30)
+
+
+
+paneA.BW.lab <- 
+  paneA.BW +
+  theme(legend.title=element_blank())
+
+
+paneA.BW.nolab <- 
+  paneA.BW +
   theme(legend.position = "none")
+
 
 ```
 
@@ -755,6 +783,7 @@ paneA.nolab <- pred %>%
 ## Plot d77 efficacy
 
 ```{r}
+# Color, no label
 paneB <- eff77_3b %>% 
   ggplot(aes(y = efficacy, x = trt_label, fill = trt_type)) + 
   geom_bar(stat = "identity", color = "black") +
@@ -762,7 +791,7 @@ paneB <- eff77_3b %>%
   scale_colour_manual(
     limits = c("Control", "Synthetic", "Natural"),
     labels = c("Control", "Synthetic", "Natural"),
-    values = c("white", "#F8766D", "#619CFF"), 
+    values = c("black", "#F8766D", "#619CFF"), 
     aesthetics = "fill"
   ) +  
   ylab("Efficacy (%)") +
@@ -771,7 +800,108 @@ paneB <- eff77_3b %>%
   
   theme(axis.text.x=element_text(angle=45,hjust=1),  axis.title.x=element_blank(), legend.position = "none")
 
-# ggsave("./outputs/efficacy_2024-03-11 v2.png", width = 12, height = 8.625, units = "in")
+# color, label_1
+
+eff77_3b %>% 
+  ggplot(aes(y = efficacy, x = trt_label, fill = trt_type)) + 
+  geom_bar(stat = "identity", color = "black") +
+  geom_errorbar(aes(ymin=efficacy_LCL, ymax=efficacy_UCL), width=0.5) +
+  scale_colour_manual(
+    limits = c("Control", "Synthetic", "Natural"),
+    labels = c("Control", "Synthetic", "Natural"),
+    values = c("black", "#F8766D", "#619CFF"), 
+    aesthetics = "fill"
+  ) +  
+  ylab("Efficacy (%)") +
+  scale_y_continuous(breaks = c(-20, 0,20,40,60,80,100)) +
+  theme_classic(base_size = 30) +
+  
+  theme(axis.text.x=element_text(angle=45,hjust=1),  axis.title.x=element_blank(), legend.title = element_blank())
+
+ggsave("./outputs/efficacy_C2 2024-12-21 label_1.png", width = 12, height = 8.625, units = "in")
+
+# color, label_2
+
+eff77_3b %>% 
+  ggplot(aes(y = efficacy, x = trt_label, fill = trt_type)) + 
+  geom_bar(stat = "identity", color = "black") +
+  geom_errorbar(aes(ymin=efficacy_LCL, ymax=efficacy_UCL), width=0.5) +
+  scale_colour_manual(
+    limits = c("Synthetic", "Natural"),
+    labels = c("Synthetic", "Natural"),
+    values = c("#F8766D", "#619CFF"), 
+    aesthetics = "fill"
+  ) +  
+  ylab("Efficacy (%)") +
+  scale_y_continuous(breaks = c(-20, 0,20,40,60,80,100)) +
+  theme_classic(base_size = 30) +
+  
+  theme(axis.text.x=element_text(angle=45,hjust=1),  axis.title.x=element_blank(), legend.title = element_blank())
+
+ggsave("./outputs/efficacy_C2 2024-12-21 label_2.png", width = 12, height = 8.625, units = "in")
+
+# BW, no label
+
+paneB.BW <- eff77_3b %>% 
+  ggplot(aes(y = efficacy, x = trt_label, fill = trt_type)) + 
+  geom_bar(stat = "identity", color = "black") +
+  geom_errorbar(aes(ymin=efficacy_LCL, ymax=efficacy_UCL), width=0.5) +
+  scale_colour_manual(
+    limits = c("Control", "Synthetic", "Natural"),
+    labels = c("Control", "Synthetic", "Natural"),
+    values = c("black", "grey75", "grey50"), 
+    aesthetics = "fill"
+  ) +  
+  ylab("Efficacy (%)") +
+  scale_y_continuous(breaks = c(-20, 0,20,40,60,80,100)) +
+  theme_classic(base_size = 30) +
+  
+  theme(axis.text.x=element_text(angle=45,hjust=1),  axis.title.x=element_blank(), legend.position = "none")
+
+
+
+
+# BW, label_1
+
+eff77_3b %>% 
+  ggplot(aes(y = efficacy, x = trt_label, fill = trt_type)) + 
+  geom_bar(stat = "identity", color = "black") +
+  geom_errorbar(aes(ymin=efficacy_LCL, ymax=efficacy_UCL), width=0.5) +
+  scale_colour_manual(
+    limits = c("Control", "Synthetic", "Natural"),
+    labels = c("Control", "Synthetic", "Natural"),
+    values = c("black", "grey75", "grey50"), 
+    aesthetics = "fill"
+  ) +  
+  ylab("Efficacy (%)") +
+  scale_y_continuous(breaks = c(-20, 0,20,40,60,80,100)) +
+  theme_classic(base_size = 30) +
+  
+  theme(axis.text.x=element_text(angle=45,hjust=1),
+        axis.title.x=element_blank(), legend.title = element_blank())
+
+ggsave("./outputs/efficacy_BW 2024-12-21 label_1.png", width = 12, height = 8.625, units = "in")
+
+# BW, label_2
+
+eff77_3b %>% 
+  ggplot(aes(y = efficacy, x = trt_label, fill = trt_type)) + 
+  geom_bar(stat = "identity", color = "black") +
+  geom_errorbar(aes(ymin=efficacy_LCL, ymax=efficacy_UCL), width=0.5) +
+  scale_colour_manual(
+    limits = c("Synthetic", "Natural"),
+    labels = c("Synthetic", "Natural"),
+    values = c("grey75", "grey50"), 
+    aesthetics = "fill"
+  ) +  
+  ylab("Efficacy (%)") +
+  scale_y_continuous(breaks = c(-20, 0,20,40,60,80,100)) +
+  theme_classic(base_size = 30) +
+  
+  theme(axis.text.x=element_text(angle=45,hjust=1),
+        axis.title.x=element_blank(), legend.title = element_blank())
+
+ggsave("./outputs/efficacy_BW 2024-12-21 label_2.png", width = 12, height = 8.625, units = "in")
   
 ```
 
@@ -802,13 +932,28 @@ effpost %>%
 ## Combine Pane A (Varroa predictions) and Pane B (day 77 Efficacy)
 
 ```{r}
+# Old color scheme - DAN
+
 ggarrange(paneA.lab, paneB, ncol = 2, nrow = 1, heights = c(0.80, 1), widths = c(1, 0.80), labels = "AUTO", font.label = list(size = 30)) # common.legend = TRUE heights = 
 
-ggsave("outputs/combo_var_efficacy 2024-04-24 label.png", width = 17.25, height = 8, units = "in")
+ggsave("outputs/combo_var_efficacy_C2 2024-12-23 label.png", width = 17.25, height = 8, units = "in")
 
 ggarrange(paneA.nolab, paneB, ncol = 2, nrow = 1, heights = c(0.80, 1), widths = c(1, 1), labels = "AUTO", font.label = list(size = 30)) # common.legend = TRUE heights = 
 
-ggsave("outputs/combo_var_efficacy 2024-04-24 nolabel.png", width = 17.25, height = 8, units = "in")
+ggsave("outputs/combo_var_efficacy_C2 2024-12-23 nolabel.png", width = 17.25, height = 8, units = "in")
+
+#### New color scheme - DAN
+
+ggarrange(paneA.BW.lab, paneB.BW, ncol = 2, nrow = 1, heights = c(0.80, 1), widths = c(1, 0.80), labels = "AUTO", font.label = list(size = 30)) # common.legend = TRUE heights = 
+
+ggsave("outputs/combo_var_efficacy_BW 2024-12-23 label.png", width = 17.25, height = 8, units = "in")
+
+ggarrange(paneA.BW.nolab, paneB.BW, ncol = 2, nrow = 1, heights = c(0.80, 1), widths = c(1, 1), labels = "AUTO", font.label = list(size = 30)) # common.legend = TRUE heights = 
+
+ggsave("outputs/combo_var_efficacy_BW 2024-12-23 nolabel.png", width = 17.25, height = 8, units = "in")
+
+
+
 ```
 
 

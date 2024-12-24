@@ -170,7 +170,7 @@ paneA2 <- ggplot() +
 
 # Color and treatment names (for horizontal layout)
 
-paneA3 <- ggplot() +
+paneA3.color.bare <- ggplot() +
   geom_boxplot(aes(x = trt_label, y = fob_77, fill = trt_type), outlier.shape = NA, color = "black", data = temp1) +
     scale_colour_manual(
     limits = c("Control", "Synthetic", "Natural"),
@@ -181,11 +181,47 @@ paneA3 <- ggplot() +
   geom_point(aes(x = trt_label, y = fob_77), shape=20, size=10, color="black", fill="black", data = emplot_strength) +
   #xlab("Treatment") +
   ylab("Colony strength\n(frames of bees)") +
-  theme_classic( base_size = 30) +
+  theme_classic( base_size = 30) 
+
+## saving a plot with labels
+paneA3.color.bare +
+  theme(axis.text.x=element_text(angle=45,hjust=1),
+        axis.title.x=element_blank(), legend.position = "top")
+
+ggsave("outputs/strength_weight_color_label 2024-12-23.png", width = 8.625, height = 8, units = "in")
+
+## saving a plot without labels
+paneA3.color <- paneA3.color.bare +
+  theme(axis.text.x=element_text(angle=45,hjust=1),
+        axis.title.x=element_blank(), legend.position = "none")
+
+# Black and white
+
+paneA3.BW.bare <- ggplot() +
+  geom_boxplot(aes(x = trt_label, y = fob_77, fill = trt_type), outlier.shape = NA, color = "black", data = temp1) +
+    scale_colour_manual(
+    limits = c("Control", "Synthetic", "Natural"),
+    labels = c("Control", "Synthetic", "Natural"),
+    values = c("white", "grey75", "grey50"), 
+    aesthetics = "fill"
+  ) +  
+  geom_point(aes(x = trt_label, y = fob_77), shape=20, size=10, color="black", fill="black", data = emplot_strength) +
+  #xlab("Treatment") +
+  ylab("Colony strength\n(frames of bees)") +
+  theme_classic( base_size = 30) 
+
+# Saving BW plot with label
+
+paneA3.BW.bare +
+  theme(axis.text.x=element_text(angle=45,hjust=1),
+        axis.title.x=element_blank(), legend.position = "top")
+
+ggsave("outputs/strength_weight_BW_label 2024-12-23.png", width = 8.625, height = 8, units = "in")
+
+# Saving BW plot without label
+
+paneA3.BW <- paneA3.BW.bare +
   theme(axis.text.x=element_text(angle=45,hjust=1), axis.title.x=element_blank(), legend.position = "none")
-
-
-
 ```
 
 
@@ -236,7 +272,7 @@ paneB <- ggplot() +
 
 # Color
 
-paneB2 <- ggplot() +
+paneB2.color <- ggplot() +
   geom_boxplot(aes(x = trt_label, y = post_kgs_C, fill = trt_type), outlier.shape = NA, color = "black", data = temp2) +
   geom_point(aes(x = trt_label, y = post_kgs_C), shape=20, size=10, color="black", fill="black", data = emplot_weight) +
     scale_colour_manual(
@@ -245,6 +281,25 @@ paneB2 <- ggplot() +
     values = c("white", "#F8766D", "#619CFF"), 
     aesthetics = "fill"
   ) +  
+  scale_y_continuous(breaks = c(40,60,80,100), limits = c(40,115)) +
+  #xlab("Treatment") +
+  ylab("\nHive weight (kg)") +
+  theme_classic( base_size = 30) +
+  theme(axis.text.x=element_text(angle=45,hjust=1), axis.title.x=element_blank(), legend.position = "none")
+
+# Black and White
+paneB2.BW <- ggplot() +
+  geom_boxplot(aes(x = trt_label, y = post_kgs_C, fill = trt_type),
+               outlier.shape = NA, color = "black", data = temp2) +
+  geom_point(aes(x = trt_label, y = post_kgs_C), shape=20, size=10,
+             color="black", fill="black", data = emplot_weight) +
+    scale_colour_manual(
+    limits = c("Control", "Synthetic", "Natural"),
+    labels = c("Control", "Synthetic", "Natural"),
+    values = c("white", "grey75", "grey50"), 
+    aesthetics = "fill"
+  ) +  
+  scale_y_continuous(breaks = c(40,60,80,100), limits = c(40,115)) +
   #xlab("Treatment") +
   ylab("\nHive weight (kg)") +
   theme_classic( base_size = 30) +
@@ -255,6 +310,8 @@ paneB2 <- ggplot() +
 
 
 ## Combine plot panes
+
+paneA.BW.lab, paneB.BW
 
 ```{r}
 # version 1
@@ -268,9 +325,15 @@ ggarrange(paneA2, paneB2, ncol = 1, nrow = 2, heights = c(0.82, 1), labels = "AU
 ggsave("outputs/strength_weight v2.png", width = 8, height = 17.25, units = "in")
 
 # version 3 - preferred version
-ggarrange(paneA3, paneB2, ncol = 2, nrow = 1, labels = "AUTO", font.label = list(size = 30)) # common.legend = TRUE
+# Color
+ggarrange(paneA3.color, paneB2.color, ncol = 2, nrow = 1, labels = "AUTO", font.label = list(size = 30)) # common.legend = TRUE
 
-ggsave("outputs/strength_weight 2024-04-24.png", width = 17.25, height = 8, units = "in")
+ggsave("outputs/strength_weight_color 2024-12-23.png", width = 17.25, height = 8, units = "in")
+
+# Black and white
+ggarrange(paneA3.BW, paneB2.BW, ncol = 2, nrow = 1, labels = "AUTO", font.label = list(size = 30)) # common.legend = TRUE
+
+ggsave("outputs/strength_weight_BW 2024-12-23.png", width = 17.25, height = 8, units = "in")
 ```
 
 
